@@ -1,5 +1,10 @@
 import CountdownScreen from "@/components/CountdownScreen";
+import WakeGate from "@/components/WakeGate";
 
 export default function Page() {
-  return <CountdownScreen />;
+  return (
+    <WakeGate>
+      <CountdownScreen />
+    </WakeGate>
+  );
 }
