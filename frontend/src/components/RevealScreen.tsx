@@ -2,10 +2,11 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { ApiError, getMe, reveal, type Reveal } from "@/lib/api";
 import { firstTimeMessage, reminderMessage } from "@/lib/revealMessages";
 import { clearToken, getToken } from "@/lib/session";
+import { useIdleSession } from "@/lib/useIdleSession";
 
 type Loaded = { vocativeName: string; reveal: Reveal };
 
@@ -17,6 +18,8 @@ type State =
 
 export default function RevealScreen() {
   const router = useRouter();
+  const backToCode = useCallback(() => router.replace("/"), [router]);
+  useIdleSession(backToCode);
   const [state, setState] = useState<State>({ kind: "loading" });
   const [attempt, setAttempt] = useState(0);
   // Revealing has a side effect (it spends the one-time "first time"), so the request is made
