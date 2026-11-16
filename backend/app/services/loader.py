@@ -8,7 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.models import Event, Participant
 from app.services.list_file import ListFile
-from app.services.security import generate_login_code, keyed_hash
+from app.services.security import generate_unique_code, keyed_hash
 
 logger = structlog.get_logger(__name__)
 
@@ -48,9 +48,7 @@ async def load_event(db: AsyncSession, parsed: ListFile, *, secret: str) -> list
     issued: list[IssuedCode] = []
     rows: dict[str, Participant] = {}
     for entry in parsed.participants:
-        code = generate_login_code()
-        while code in used:
-            code = generate_login_code()
+        code = generate_unique_code(used.__contains__)
         used.add(code)
         issued.append(IssuedCode(entry.display_name, code))
         rows[entry.display_name.casefold()] = Participant(

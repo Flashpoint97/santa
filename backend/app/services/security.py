@@ -3,11 +3,20 @@
 import hashlib
 import hmac
 import secrets
+from collections.abc import Callable
 
 
 def generate_login_code() -> str:
     """6-digit code from the OS CSPRNG."""
     return f"{secrets.randbelow(1_000_000):06d}"
+
+
+def generate_unique_code(is_taken: Callable[[str], bool]) -> str:
+    """A fresh Code for which `is_taken` is false (redraws on collision; 6 digits, few people)."""
+    code = generate_login_code()
+    while is_taken(code):
+        code = generate_login_code()
+    return code
 
 
 def keyed_hash(secret: str, value: str) -> str:

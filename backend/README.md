@@ -64,6 +64,27 @@ Exclusions are the Partner links (both directions). A second `draw` is refused w
 an impossible draw writes nothing and exits 1. A re-draw also resets everyone's first-reveal flag.
 Assignments are never printed or logged.
 
+## Organizer commands
+
+```
+uv run python -m app.cli new-code "Osoba B"   # lost Code: prints a new one, once
+uv run python -m app.cli status               # "Osoba A: da" / "Osoba A: ne" (logged in), sorted
+uv run python -m app.cli wipe                 # after the event: delete everything
+```
+
+- `new-code <name>`: the name is matched case-insensitively; an unknown name exits 1 and changes
+  nothing. In one transaction it stores a new unique Code's HMAC and deletes all of that
+  Participant's Sessions, so the old Code and the old tokens stop working at once. The Code is
+  printed once on stdout and never logged. The Participant's logged-in flag is left as it was.
+- `status`: one line per Participant, name plus `da`/`ne` (has logged in). Nothing about
+  Assignments, Reveals, Codes or times. Exits 1 if no event is loaded.
+- `wipe`: asks you to type `OBRIŠI` (read from stdin; anything else, or no input, deletes nothing
+  and exits 1). It then deletes the event, which cascades to Participants, Sessions, Assignments
+  and Animations, and also all rate-limit rows, so no table keeps any data. There is no
+  `--yes` flag on purpose; scripts can pipe the word in: `echo OBRIŠI | python -m app.cli wipe`.
+
+Logs go to stderr and never contain names, Codes or Assignments (participant ids at most).
+
 ## Sessions and login limits
 
 - A Session is valid while now - `last_activity_at` <= `SESSION_IDLE_TIMEOUT_MINUTES` (10). Every
