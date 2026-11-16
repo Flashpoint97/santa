@@ -1,0 +1,52 @@
+.card {
+  padding: 20px;
+  border: 1px solid var(--paper-border);
+  background: var(--paper);
+  box-shadow: 5px 5px 0 var(--paper-shadow);
+}
+
+.top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.invitation > :not(.top) {
+  margin-top: 12px;
+}
+
+/* Handwritten feel: italic serif on faintly ruled paper, tilted a hair. */
+.note {
+  padding-top: 16px;
+  background-color: var(--paper);
+  background-image: repeating-linear-gradient(
+    to bottom,
+    transparent 0 31px,
+    var(--paper-shadow) 31px 32px
+  );
+  background-position: 0 4px;
+  font: italic 400 24px / 32px var(--font-display);
+  transform: rotate(-0.7deg);
+}
+
+.note .top {
+  margin-bottom: 4px;
+}
+
+/* After the event: red banner edge, big serif message. */
+.celebration {
+  padding: 24px 20px 28px;
+  border-top: 6px solid var(--red);
+  text-align: center;
+  font: 400 clamp(28px, 7vw, 40px) / 1.1 var(--font-display);
+  letter-spacing: -0.02em;
+}
+
+/* Stamp on top, label under it, both centred. */
+.celebration .top {
+  flex-direction: column-reverse;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 14px;
+}

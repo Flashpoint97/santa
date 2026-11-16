@@ -3,10 +3,15 @@
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import CountdownTimer from "./CountdownTimer";
+import LogoutLink from "./LogoutLink";
+import Button from "./ui/Button";
+import Envelope from "./ui/Envelope";
+import PaperCard from "./ui/PaperCard";
 import { ApiError, getMe, type Me } from "@/lib/api";
 import { formatBudget, formatExchangeTime } from "@/lib/format";
 import { clearToken, getToken } from "@/lib/session";
 import { useIdleSession } from "@/lib/useIdleSession";
+import styles from "./CountdownScreen.module.css";
 
 type State =
   | { kind: "loading" }
@@ -55,51 +60,74 @@ export default function CountdownScreen() {
 
   if (state.kind === "loading") {
     return (
-      <main>
-        <p>Učitavam…</p>
-      </main>
+      <Envelope action={<LogoutLink />}>
+        <p role="status" className={styles.status}>
+          Učitavam…
+        </p>
+      </Envelope>
     );
   }
 
   if (state.kind === "error") {
     return (
-      <main>
-        <p role="alert">Ne mogu učitati podatke. Pokušaj ponovno.</p>
-        <button type="button" onClick={retry}>
-          Pokušaj ponovno
-        </button>
-      </main>
+      <Envelope action={<LogoutLink />}>
+        <div className={styles.status}>
+          <p role="alert" className={styles.error}>
+            Ne mogu učitati podatke. Pokušaj ponovno.
+          </p>
+          <Button onClick={retry}>Pokušaj ponovno</Button>
+        </div>
+      </Envelope>
     );
   }
 
   const { me } = state;
   const { event } = me;
   return (
-    <main>
-      <h1>Bok, {me.vocative_name}!</h1>
-      {me.personal_note && <p>{me.personal_note}</p>}
+    <Envelope action={<LogoutLink />}>
+      <div className={styles.layout}>
+        <h1 className={styles.title}>Bok, {me.vocative_name}!</h1>
 
-      <h2>{event.name}</h2>
-      <ul>
-        {event.budget_amount !== null && (
-          <li>Proračun: {formatBudget(event.budget_amount, event.budget_currency)}</li>
+        {me.personal_note && (
+          <PaperCard variant="note" label="Poruka" className={styles.note}>
+            <p>{me.personal_note}</p>
+          </PaperCard>
         )}
-        <li>Mjesto: {event.place}</li>
-        <li>Kada: {formatExchangeTime(event.exchange_at)}</li>
-      </ul>
 
-      <CountdownTimer
-        exchangeAt={event.exchange_at}
-        afterEventMessage={event.after_event_message}
-      />
+        <PaperCard label="Pozivnica" stamp className={styles.invitation}>
+          <h2>{event.name}</h2>
+          <dl className={styles.details}>
+            <div>
+              <dt className="label">Mjesto</dt>
+              <dd>{event.place}</dd>
+            </div>
+            <div>
+              <dt className="label">Kada</dt>
+              <dd>{formatExchangeTime(event.exchange_at)}</dd>
+            </div>
+          </dl>
+          {event.budget_amount !== null && (
+            <small className={styles.budget}>
+              Proračun: {formatBudget(event.budget_amount, event.budget_currency)}
+            </small>
+          )}
+        </PaperCard>
 
-      {me.drawn ? (
-        <button type="button" onClick={() => router.push("/reveal/")}>
-          Otvori svoj poklon
-        </button>
-      ) : (
-        <p>Izvlačenje još nije održano. Navrati malo kasnije.</p>
-      )}
-    </main>
+        <div className={styles.timer}>
+          <CountdownTimer
+            exchangeAt={event.exchange_at}
+            afterEventMessage={event.after_event_message}
+          />
+        </div>
+
+        <div className={styles.action}>
+          {me.drawn ? (
+            <Button onClick={() => router.push("/reveal/")}>Otvori svoj poklon</Button>
+          ) : (
+            <p className={styles.notDrawn}>Izvlačenje još nije održano. Navrati malo kasnije.</p>
+          )}
+        </div>
+      </div>
+    </Envelope>
   );
 }

@@ -9,6 +9,10 @@ import {
   sleep,
   waitForBackend,
 } from "@/lib/wake";
+import styles from "./WakeGate.module.css";
+import Button from "./ui/Button";
+import Envelope from "./ui/Envelope";
+import Stamp from "./ui/Stamp";
 
 type Phase = "checking" | "waking" | "ready" | "timeout";
 
@@ -62,20 +66,24 @@ export default function WakeGate({ children }: { children: ReactNode }) {
 
   if (phase === "timeout") {
     return (
-      <main>
-        <h1>Patuljci još spavaju</h1>
-        <p role="alert">Poslužitelj se nije probudio. Pokušaj ponovno za nekoliko trenutaka.</p>
-        <button type="button" onClick={retry}>
-          Pokušaj ponovno
-        </button>
-      </main>
+      <Envelope>
+        <div className={styles.wake}>
+          <Stamp large />
+          <h1>Patuljci još spavaju</h1>
+          <p role="alert">Poslužitelj se nije probudio. Pokušaj ponovno za nekoliko trenutaka.</p>
+          <Button onClick={retry}>Pokušaj ponovno</Button>
+        </div>
+      </Envelope>
     );
   }
 
   return (
-    <main>
-      <h1>Budimo patuljke… 🎄</h1>
-      <p role="status">Ovo može potrajati do minutu.</p>
-    </main>
+    <Envelope>
+      <div className={styles.wake}>
+        <Stamp large wobble />
+        <h1>Budimo patuljke…</h1>
+        <p role="status">Ovo može potrajati do minutu.</p>
+      </div>
+    </Envelope>
   );
 }

@@ -1,0 +1,66 @@
+/* Phone: message, name, postcard, back link. Desktop: text on the left, the postcard on the right. */
+.layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 16px;
+  justify-items: start;
+}
+
+.message {
+  max-width: 34ch;
+  font-size: 19px;
+  font-weight: 500;
+  line-height: 1.35;
+}
+
+.name {
+  font-size: clamp(56px, 17vw, 112px);
+  line-height: 0.88;
+}
+
+.media {
+  width: 100%;
+  margin: 8px 0 12px;
+}
+
+.back {
+  align-self: start;
+}
+
+.status {
+  display: grid;
+  justify-items: start;
+  gap: 16px;
+}
+
+.error {
+  color: var(--red);
+  font-weight: 500;
+}
+
+@media (min-width: 760px) {
+  .layout {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    grid-template-areas:
+      "message media"
+      "name media"
+      "back media";
+    grid-template-rows: auto auto 1fr;
+    column-gap: 48px;
+    align-items: start;
+  }
+
+  .message {
+    grid-area: message;
+  }
+  .name {
+    grid-area: name;
+  }
+  .media {
+    grid-area: media;
+    margin: 0;
+  }
+  .back {
+    grid-area: back;
+  }
+}

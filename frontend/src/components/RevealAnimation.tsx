@@ -4,6 +4,8 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { ApiError, getReceiverAnimation } from "@/lib/api";
 import { clearToken, getToken } from "@/lib/session";
+import styles from "./RevealAnimation.module.css";
+import Stamp from "./ui/Stamp";
 
 type State =
   | { kind: "loading" }
@@ -53,22 +55,42 @@ export default function RevealAnimation() {
   }, [router]);
 
   if (state.kind === "loading") {
-    return <p aria-live="polite">Učitavam animaciju…</p>;
+    return (
+      <div className={styles.postcard}>
+        <div className={styles.placeholder}>
+          <p aria-live="polite">Učitavam animaciju…</p>
+        </div>
+      </div>
+    );
   }
   if (state.kind === "failed") {
-    return <p role="alert">Animaciju trenutno ne mogu prikazati.</p>;
+    return (
+      <div className={styles.postcard}>
+        <div className={styles.placeholder}>
+          <p role="alert" className={styles.error}>
+            Animaciju trenutno ne mogu prikazati.
+          </p>
+        </div>
+      </div>
+    );
   }
   return (
-    <video
-      ref={muteOnMount}
-      src={state.url}
-      autoPlay
-      muted
-      loop
-      playsInline
-      preload="auto"
-      aria-label="Animacija osobe koju darivaš"
-      style={{ width: "100%", maxWidth: "480px", height: "auto" }}
-    />
+    <div className={styles.postcard}>
+      <span className={styles.stamp}>
+        <Stamp />
+      </span>
+      <video
+        ref={muteOnMount}
+        src={state.url}
+        autoPlay
+        muted
+        loop
+        playsInline
+        preload="auto"
+        aria-label="Animacija osobe koju darivaš"
+        className={styles.video}
+      />
+      <span className={`label ${styles.caption}`}>Pošta sa Sjevernog pola</span>
+    </div>
   );
 }

@@ -1,0 +1,56 @@
+/* The video as a postcard: paper frame, hard shadow, a slight tilt and a stamp in the corner. */
+.postcard {
+  position: relative;
+  width: 100%;
+  max-width: 480px;
+  margin: 0 auto;
+  padding: 12px 12px 14px;
+  border: 1px solid var(--paper-border);
+  background: var(--paper);
+  box-shadow: 5px 5px 0 var(--paper-shadow);
+  transform: rotate(1.2deg);
+}
+
+.stamp {
+  position: absolute;
+  top: -14px;
+  right: -10px;
+  z-index: 1;
+  transform: rotate(6deg);
+}
+
+.video {
+  display: block;
+  width: 100%;
+  height: auto;
+  border: 1px solid var(--paper-border);
+  background: var(--paper-shadow);
+}
+
+.caption {
+  display: block;
+  margin-top: 10px;
+  color: var(--ink-soft);
+}
+
+/* Loading and failure share the frame so the layout does not jump. */
+.placeholder {
+  display: grid;
+  place-items: center;
+  aspect-ratio: 1;
+  padding: 16px;
+  border: 1px dashed var(--paper-border);
+  background: var(--bg);
+  text-align: center;
+}
+
+.error {
+  color: var(--red);
+  font-weight: 500;
+}
+
+@media (min-width: 760px) {
+  .postcard {
+    margin: 0;
+  }
+}

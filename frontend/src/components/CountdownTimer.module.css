@@ -1,0 +1,33 @@
+.blocks {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.block {
+  display: grid;
+  justify-items: center;
+  gap: 2px;
+  padding: 12px 2px 8px;
+  border-radius: 6px;
+  background: var(--ink);
+  color: var(--button-text);
+  box-shadow: 3px 3px 0 var(--paper-shadow);
+}
+
+.digits {
+  font: 600 clamp(26px, 8.5vw, 40px) / 1.1 var(--font-label);
+  font-variant-numeric: tabular-nums;
+}
+
+.unit {
+  font-size: 12px;
+  letter-spacing: 0.06em;
+}
+
+.after {
+  margin: 0;
+}

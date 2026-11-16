@@ -1,0 +1,35 @@
+.stamp {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 57px;
+  height: 64px;
+  border: 3px dotted var(--paper);
+  background: var(--stamp);
+  box-shadow: 0 0 0 1px var(--stamp);
+  color: #fff;
+  font-size: 30px;
+  line-height: 1;
+}
+
+.large {
+  width: 86px;
+  height: 96px;
+  border-width: 4px;
+  font-size: 45px;
+}
+
+.wobble {
+  animation: wobble 2.4s ease-in-out infinite;
+  transform-origin: 50% 90%;
+}
+
+@keyframes wobble {
+  0%,
+  100% {
+    transform: rotate(-5deg);
+  }
+  50% {
+    transform: rotate(5deg);
+  }
+}

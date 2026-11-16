@@ -1,0 +1,42 @@
+.envelope {
+  width: 100%;
+  max-width: 960px;
+  min-height: calc(100dvh - 2 * var(--gutter));
+  margin: 0 auto;
+  padding: clamp(22px, 4vw, 44px);
+  border: 9px solid transparent;
+  /* Airmail border: red / cream / navy diagonal stripes */
+  border-image: repeating-linear-gradient(
+      135deg,
+      var(--red) 0 16px,
+      var(--bg) 16px 28px,
+      var(--ink) 28px 44px,
+      var(--bg) 44px 56px
+    )
+    12;
+  background: var(--bg);
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  min-height: 44px;
+  padding-bottom: 12px;
+  margin-bottom: 28px;
+  border-bottom: 1px solid currentColor;
+}
+
+.brand {
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+}
+
+@media (max-width: 580px) {
+  .header {
+    margin-bottom: 22px;
+  }
+}

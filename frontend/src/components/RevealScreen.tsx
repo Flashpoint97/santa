@@ -1,13 +1,17 @@
 "use client";
 
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
+import LogoutLink from "@/components/LogoutLink";
 import RevealAnimation from "@/components/RevealAnimation";
+import Button from "@/components/ui/Button";
+import Envelope from "@/components/ui/Envelope";
+import TextLink from "@/components/ui/TextLink";
 import { ApiError, getMe, reveal, type Reveal } from "@/lib/api";
 import { firstTimeMessage, reminderMessage } from "@/lib/revealMessages";
 import { clearToken, getToken } from "@/lib/session";
 import { useIdleSession } from "@/lib/useIdleSession";
+import styles from "./RevealScreen.module.css";
 
 type Loaded = { vocativeName: string; reveal: Reveal };
 
@@ -65,40 +69,43 @@ export default function RevealScreen() {
 
   if (state.kind === "loading") {
     return (
-      <main>
-        <p>Učitavam…</p>
-      </main>
+      <Envelope action={<LogoutLink />}>
+        <p role="status" className={styles.status}>
+          Učitavam…
+        </p>
+      </Envelope>
     );
   }
 
   if (state.kind === "error") {
     return (
-      <main>
-        <p role="alert">Ne mogu otvoriti poklon. Pokušaj ponovno.</p>
-        <button
-          type="button"
-          onClick={() => {
-            setState({ kind: "loading" });
-            setAttempt((n) => n + 1);
-          }}
-        >
-          Pokušaj ponovno
-        </button>
-        <p>
-          <Link href="/countdown/">Natrag na odbrojavanje</Link>
-        </p>
-      </main>
+      <Envelope action={<LogoutLink />}>
+        <div className={styles.status}>
+          <p role="alert" className={styles.error}>
+            Ne mogu otvoriti poklon. Pokušaj ponovno.
+          </p>
+          <Button
+            onClick={() => {
+              setState({ kind: "loading" });
+              setAttempt((n) => n + 1);
+            }}
+          >
+            Pokušaj ponovno
+          </Button>
+          <TextLink href="/countdown/">Natrag na odbrojavanje</TextLink>
+        </div>
+      </Envelope>
     );
   }
 
   if (state.kind === "not-drawn") {
     return (
-      <main>
-        <p>Izvlačenje još nije održano. Navrati malo kasnije.</p>
-        <p>
-          <Link href="/countdown/">Natrag na odbrojavanje</Link>
-        </p>
-      </main>
+      <Envelope action={<LogoutLink />}>
+        <div className={styles.status}>
+          <p>Izvlačenje još nije održano. Navrati malo kasnije.</p>
+          <TextLink href="/countdown/">Natrag na odbrojavanje</TextLink>
+        </div>
+      </Envelope>
     );
   }
 
@@ -107,15 +114,17 @@ export default function RevealScreen() {
     ? firstTimeMessage(vocativeName, result.receiver_accusative_name)
     : reminderMessage(vocativeName, result.receiver_accusative_name);
   return (
-    <main>
-      <p>{message}</p>
-      <h1>{result.receiver_display_name}</h1>
-
-      <RevealAnimation />
-
-      <p>
-        <Link href="/countdown/">Natrag na odbrojavanje</Link>
-      </p>
-    </main>
+    <Envelope action={<LogoutLink />}>
+      <div className={styles.layout}>
+        <p className={styles.message}>{message}</p>
+        <h1 className={styles.name}>{result.receiver_display_name}</h1>
+        <div className={styles.media}>
+          <RevealAnimation />
+        </div>
+        <TextLink href="/countdown/" className={styles.back}>
+          Natrag na odbrojavanje
+        </TextLink>
+      </div>
+    </Envelope>
   );
 }

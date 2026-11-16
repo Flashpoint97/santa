@@ -1,14 +1,126 @@
-/* Deliberately unstyled: the theme arrives in a later ticket. */
+/*
+ * "North Pole Post" theme: design tokens, base elements and a few shared utilities.
+ * Component styles live next to their components as CSS Modules (components/ui/*.module.css
+ * and the screen modules). Light only.
+ */
+
+:root {
+  /* Palette */
+  --bg: #f8f2e5;
+  --ink: #23344d;
+  --ink-hover: #344b69;
+  --ink-soft: #44546c; /* secondary text, about 7:1 on --bg */
+  --paper: #fff9ee;
+  --red: #b6463c; /* about 4.8:1 on --bg, fine for text */
+  --stamp: #ac493d;
+  --paper-border: #b9b2a4;
+  --paper-shadow: #e4dccb;
+  --button-text: #fff6e6;
+
+  /* Type (the --font-* variables are set by next/font in app/layout.tsx) */
+  --font-body: var(--font-dm-sans), Arial, sans-serif;
+  --font-display: var(--font-instrument-serif), Georgia, serif;
+  --font-label: var(--font-plex-mono), ui-monospace, monospace;
+
+  /* Page gutter around the envelope: none at a phone's edge, up to 32px on large screens */
+  --gutter: clamp(0px, 3vw, 32px);
+
+  color-scheme: light;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
 body {
-  margin: 0 auto;
-  max-width: 32rem;
-  padding: 1rem;
-  font-family: system-ui, sans-serif;
-  line-height: 1.5;
+  margin: 0;
+  padding: var(--gutter);
+  background: var(--bg);
+  color: var(--ink);
+  font: 400 16px / 1.5 var(--font-body);
   overflow-wrap: anywhere;
+}
+
+h1,
+h2,
+p {
+  margin: 0;
+}
+
+h1 {
+  font: 400 clamp(46px, 11vw, 88px) / 0.9 var(--font-display);
+  letter-spacing: -0.045em;
+}
+
+h2 {
+  font: 500 22px / 1.2 var(--font-body);
+  letter-spacing: -0.01em;
 }
 
 input,
 button {
   font: inherit;
+}
+
+:focus-visible {
+  outline: 3px solid var(--red);
+  outline-offset: 3px;
+}
+
+/* Small uppercase mono label (POZIVNICA, "Tvoj kod", ...). */
+.label {
+  font: 600 12px / 1.4 var(--font-label);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+/* Quiet link-like control used in the header and for secondary actions. */
+.text-link {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--ink);
+  font: 500 14px / 1.2 var(--font-body);
+  text-decoration: underline;
+  text-underline-offset: 4px;
+  text-decoration-thickness: 1px;
+  cursor: pointer;
+}
+
+.text-link:hover {
+  text-decoration-thickness: 2px;
+}
+
+/* Visible to screen readers only. */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }

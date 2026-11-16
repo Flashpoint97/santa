@@ -1,0 +1,10 @@
+.wake {
+  display: grid;
+  justify-items: start;
+  gap: 18px;
+  padding-top: 8px;
+}
+
+.wake p {
+  max-width: 38ch;
+}

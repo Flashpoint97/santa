@@ -12,6 +12,8 @@ npm run lint && npm run typecheck && npm run build   # build writes the static s
 - `NEXT_PUBLIC_API_URL`: backend base URL (public, no secrets).
 - `BASE_PATH`: build-time sub-path for GitHub Pages (the repo name, e.g. `/santa`). Empty locally.
 
+Theme "North Pole Post": design tokens and base styles in `src/app/globals.css`, fonts via `next/font/google` in `src/app/layout.tsx` (self-hosted at build time), shared pieces in `src/components/ui/` (`Envelope`, `PaperCard`, `Stamp`, `Button`, `TextLink`), per-screen CSS Modules next to the screens. Light only; plain CSS, no UI library.
+
 Layout: `src/lib/` (API client, session token, formatting, wake/health polling, idle session), `src/components/` (screens), `src/app/` (routes: `/` code screen, `/countdown/`, `/reveal/`). Reveal message wording lives in `src/lib/revealMessages.ts` (draft copy). The Reveal video is `src/components/RevealAnimation.tsx`: it fetches `GET /me/receiver/animation` with the bearer token (a `<video src>` cannot send headers), plays it from an object URL (autoplay, muted, loop, playsinline) and revokes the URL on unmount.
 
 Every entry page is wrapped in `<WakeGate>` (`src/components/WakeGate.tsx`): it polls `GET /health` (API root) with backoff for up to about 90 s and shows the "waking up" screen until it answers 200. Wrap new entry pages the same way.
