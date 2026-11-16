@@ -1,0 +1,14 @@
+/* Deliberately unstyled: the theme arrives in a later ticket. */
+body {
+  margin: 0 auto;
+  max-width: 32rem;
+  padding: 1rem;
+  font-family: system-ui, sans-serif;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+input,
+button {
+  font: inherit;
+}
