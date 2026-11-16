@@ -1,0 +1,15 @@
+[project]
+name = "santa-e2e"
+version = "0.1.0"
+description = "Browser smoke test for the Secret Santa static site (synthetic data only)."
+requires-python = ">=3.12"
+dependencies = []
+
+[dependency-groups]
+dev = [
+    "playwright==1.65.2",
+    "pytest==9.2.0",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["."]
