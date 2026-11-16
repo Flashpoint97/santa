@@ -2,10 +2,6 @@
 // the Organizer approves the final text. The vocative form goes in greetings; the accusative
 // form follows "daruješ" (both come from the list file, so no declension happens in code).
 
-export function firstTimeMessage(vocativeName: string, receiverAccusative: string): string {
+export function revealMessage(vocativeName: string, receiverAccusative: string): string {
   return `Ho ho ho, ${vocativeName}! 🎁 Ove godine daruješ… ${receiverAccusative}!`;
-}
-
-export function reminderMessage(vocativeName: string, receiverAccusative: string): string {
-  return `Podsjetnik, ${vocativeName}: ti daruješ ${receiverAccusative} 🤫`;
 }

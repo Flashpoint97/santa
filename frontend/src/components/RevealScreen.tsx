@@ -8,7 +8,7 @@ import Button from "@/components/ui/Button";
 import Envelope from "@/components/ui/Envelope";
 import TextLink from "@/components/ui/TextLink";
 import { ApiError, getMe, reveal, type Reveal } from "@/lib/api";
-import { firstTimeMessage, reminderMessage } from "@/lib/revealMessages";
+import { revealMessage } from "@/lib/revealMessages";
 import { clearToken, getToken } from "@/lib/session";
 import { useIdleSession } from "@/lib/useIdleSession";
 import styles from "./RevealScreen.module.css";
@@ -27,7 +27,7 @@ export default function RevealScreen() {
   useIdleSession(backToCode);
   const [state, setState] = useState<State>({ kind: "loading" });
   const [attempt, setAttempt] = useState(0);
-  // Revealing has a side effect (it spends the one-time "first time"), so the request is made
+  // Revealing has a server-side side effect (it records the first reveal), so the request is made
   // once per mount even if React re-runs the effect (StrictMode in dev). A failure clears it
   // so that "Pokušaj ponovno" can ask again.
   const request = useRef<Promise<Loaded> | null>(null);
@@ -110,9 +110,7 @@ export default function RevealScreen() {
   }
 
   const { vocativeName, reveal: result } = state;
-  const message = result.first_time
-    ? firstTimeMessage(vocativeName, result.receiver_accusative_name)
-    : reminderMessage(vocativeName, result.receiver_accusative_name);
+  const message = revealMessage(vocativeName, result.receiver_accusative_name);
   return (
     <Envelope action={<LogoutLink />}>
       <div className={styles.layout}>

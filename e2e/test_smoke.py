@@ -1,7 +1,7 @@
 """Smoke test of the core flow against a real backend and the static frontend build.
 
-    Code (wrong, then right) -> Countdown -> "Otvori svoj poklon" -> Reveal (first-time message,
-    <video> with a blob: src) -> reload -> Reveal (reminder message)
+    Code (wrong, then right) -> Countdown -> "Otvori svoj poklon" -> Reveal (message,
+    <video> with a blob: src) -> reload -> Reveal (same message again)
 
 The Codes are never hard-coded: the CI job (or you) saves the stdout of
 `python -m app.cli load ...` to a file and points SMOKE_CODES_FILE at it. Everything here is
@@ -85,7 +85,7 @@ def test_code_to_countdown_to_reveal(page: Page) -> None:
         open_button = page.get_by_role("button", name="Otvori svoj poklon")
         expect(open_button).to_be_visible()
 
-        # "Open your gift": first-time message, and a <video> whose src is a blob: URL
+        # "Open your gift": message, and a <video> whose src is a blob: URL
         # (the clip is fetched with the bearer token and played from an object URL).
         open_button.click()
         expect(page).to_have_url(re.compile(r"/reveal/$"))
@@ -94,10 +94,10 @@ def test_code_to_countdown_to_reveal(page: Page) -> None:
         expect(video).to_have_count(1)
         expect(video).to_have_attribute("src", re.compile(r"^blob:"))
 
-        # Reloading spends no second "first time": the reminder message appears instead.
+        # Reloading shows the very same message again (no separate reminder text).
         page.reload()
-        expect(page.get_by_text("Podsjetnik")).to_be_visible()
-        expect(page.get_by_text("Ho ho ho")).to_have_count(0)
+        expect(page.get_by_text("Ho ho ho")).to_be_visible()
+        expect(page.get_by_text("Podsjetnik")).to_have_count(0)
         expect(page.locator("video")).to_have_attribute("src", re.compile(r"^blob:"))
     except Exception:
         ARTIFACTS.mkdir(parents=True, exist_ok=True)
