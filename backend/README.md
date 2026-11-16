@@ -53,6 +53,19 @@ uv run python -m app.cli load list.example.json
 prints one 6-digit Code per participant, once (only their HMAC is stored). To start over, drop and
 recreate the dev database, then `alembic upgrade head`.
 
+## Sessions and login limits
+
+- A Session is valid while now - `last_activity_at` <= `SESSION_IDLE_TIMEOUT_MINUTES` (10). Every
+  authenticated request and `POST /api/v1/session/heartbeat` (204) bump it in one atomic UPDATE;
+  an expired Session is deleted and answered with 401. `DELETE /api/v1/session` (204) logs out.
+- Failed Codes are limited per client IP (`LOGIN_FAILURES_PER_IP` per `..._WINDOW_MINUTES`) and
+  site-wide (`LOGIN_FAILURES_GLOBAL`), answered with 429; only failures are recorded and a
+  locked-out request never checks the Code. Check + record is atomic: on Postgres a
+  transaction-scoped advisory lock per key (IP key and site-wide key, taken in sorted order) is
+  held from the count until the commit, so concurrent guesses cannot exceed a limit (SQLite takes
+  its database write lock instead). Consequence: login attempts are serialised site-wide, fine
+  at this size. See `app/services/rate_limit.py`.
+
 ## Checks
 
 ```

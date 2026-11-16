@@ -6,6 +6,7 @@ import CountdownTimer from "./CountdownTimer";
 import { ApiError, getMe, type Me } from "@/lib/api";
 import { formatBudget, formatExchangeTime } from "@/lib/format";
 import { clearToken, getToken } from "@/lib/session";
+import { useIdleSession } from "@/lib/useIdleSession";
 
 type State =
   | { kind: "loading" }
@@ -16,6 +17,10 @@ export default function CountdownScreen() {
   const router = useRouter();
   const [state, setState] = useState<State>({ kind: "loading" });
   const [attempt, setAttempt] = useState(0);
+
+  // Heartbeat while active; after 10 idle minutes clear the token and go back to the Code screen.
+  const backToCode = useCallback(() => router.replace("/"), [router]);
+  useIdleSession(backToCode);
 
   useEffect(() => {
     const token = getToken();

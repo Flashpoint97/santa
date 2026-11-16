@@ -4,6 +4,7 @@ Auth fails closed: a missing, malformed or unknown bearer token is always a 401,
 no switch that disables it. Routes get a store already bound to the verified Principal.
 """
 
+from datetime import timedelta
 from typing import Annotated
 
 from fastapi import Depends, HTTPException, Request, status
@@ -27,6 +28,9 @@ def client_ip(request: Request) -> str:
     return request.client.host if request.client else "unknown"
 
 
+ClientIp = Annotated[str, Depends(client_ip)]
+
+
 async def get_principal(
     db: DbSession,
     credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(_bearer)],
@@ -39,7 +43,10 @@ async def get_principal(
     if credentials is None:
         raise unauthorized
     principal = await authenticate(
-        db, secret=settings.code_hmac_secret.get_secret_value(), token=credentials.credentials
+        db,
+        secret=settings.code_hmac_secret.get_secret_value(),
+        token=credentials.credentials,
+        idle_timeout=timedelta(minutes=settings.session_idle_timeout_minutes),
     )
     if principal is None:
         raise unauthorized
