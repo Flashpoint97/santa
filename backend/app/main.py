@@ -3,8 +3,7 @@ import asyncio
 import structlog
 from fastapi import FastAPI, status
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse, Response
-from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
+from fastapi.responses import JSONResponse
 from sqlalchemy import text
 
 from app.api.v1 import router as v1_router
@@ -30,7 +29,7 @@ def create_app() -> FastAPI:
         allow_origins=settings.cors_origins,
         # Bearer tokens, not cookies: no credentialed CORS needed.
         allow_credentials=False,
-        allow_methods=["GET", "POST", "PATCH", "DELETE"],
+        allow_methods=["GET", "POST", "DELETE"],
         allow_headers=["Authorization", "Content-Type"],
         max_age=600,
     )
@@ -49,12 +48,6 @@ def create_app() -> FastAPI:
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             )
         return JSONResponse({"status": "ok", "db": "ok"})
-
-    if settings.metrics_enabled:
-
-        @app.get("/metrics", include_in_schema=False)
-        async def metrics() -> Response:
-            return Response(generate_latest(), media_type=CONTENT_TYPE_LATEST)
 
     return app
 

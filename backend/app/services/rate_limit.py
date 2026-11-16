@@ -10,19 +10,19 @@ from app.services.security import keyed_hash
 
 
 class RateLimiter:
-    def __init__(self, session: AsyncSession, *, secret: str, window: timedelta) -> None:
+    def __init__(self, session: AsyncSession, *, secret: str) -> None:
         self._session = session
         self._secret = secret
-        self._window = window
 
-    async def hit(self, key: str, limit: int) -> bool:
-        """Record one hit for `key`; return False if the key is over `limit` in the window.
+    async def hit(self, key: str, *, limit: int, window: timedelta) -> bool:
+        """Record one hit for `key`; return False if the key is over `limit` within `window`.
 
+        The window is per call because the per-IP and site-wide limits use different ones.
         Rejected hits are recorded too, so hammering the endpoint keeps you locked out.
         The caller commits.
         """
         key_hash = keyed_hash(self._secret, key)
-        cutoff = datetime.now(UTC) - self._window
+        cutoff = datetime.now(UTC) - window
         count = await self._session.scalar(
             select(func.count())
             .select_from(RateLimitHit)
@@ -31,6 +31,7 @@ class RateLimiter:
         self._session.add(RateLimitHit(key_hash=key_hash))
         return (count or 0) < limit
 
-    async def prune(self) -> None:
-        cutoff = datetime.now(UTC) - self._window
+    async def prune(self, *, older_than: timedelta) -> None:
+        """Delete hits older than the longest window in use. The caller commits."""
+        cutoff = datetime.now(UTC) - older_than
         await self._session.execute(delete(RateLimitHit).where(RateLimitHit.created_at <= cutoff))

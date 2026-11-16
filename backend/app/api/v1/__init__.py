@@ -1,8 +1,4 @@
 from fastapi import APIRouter
 
-from app.api.v1 import admin, auth, me
-
+# Routes arrive with the code-login slice; the router and its prefix are the stable mount point.
 router = APIRouter(prefix="/api/v1")
-router.include_router(auth.router)
-router.include_router(me.router)
-router.include_router(admin.router)

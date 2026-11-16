@@ -39,30 +39,19 @@ class Settings(BaseSettings):
     db_statement_timeout_ms: int = Field(default=5000, ge=100)
     db_health_timeout_s: float = Field(default=2.0, gt=0)
 
-    # --- auth (no defaults for secrets: the app refuses to start without them) ---
-    jwt_secret: SecretStr = Field(min_length=32)
+    # --- codes and sessions (no default for the secret: the app refuses to start without it) ---
+    # Keys the HMAC of login codes and of rate-limit keys. Rotating it invalidates every code.
     code_hmac_secret: SecretStr = Field(min_length=32)
-    jwt_ttl_minutes: int = Field(default=120, ge=5, le=24 * 60)
-    login_code_ttl_minutes: int = Field(default=10, ge=1, le=30)
-    login_code_max_attempts: int = Field(default=5, ge=1, le=10)
+    session_idle_timeout_minutes: int = Field(default=10, ge=1, le=24 * 60)
 
-    # --- rate limits (sliding window) ---
-    rate_limit_window_minutes: int = Field(default=60, ge=1)
-    code_requests_per_email: int = Field(default=5, ge=1)
-    code_requests_per_ip: int = Field(default=20, ge=1)
-    code_verifications_per_ip: int = Field(default=30, ge=1)
+    # --- brute-force limits on *failed* logins (sliding windows) ---
+    login_failures_per_ip: int = Field(default=10, ge=1)
+    login_failures_per_ip_window_minutes: int = Field(default=15, ge=1)
+    login_failures_global: int = Field(default=50, ge=1)
+    login_failures_global_window_minutes: int = Field(default=60, ge=1)
 
     # --- CORS: the GitHub Pages origin (scheme + host, no path) and localhost in dev ---
     cors_origins: list[str] = ["http://localhost:3000"]
-
-    # --- email ---
-    email_backend: Literal["console", "postmark"] = "console"
-    postmark_server_token: SecretStr | None = None
-    email_from: str = "Secret Santa <santa@example.com>"
-    frontend_url: str = "http://localhost:3000"
-
-    # --- observability ---
-    metrics_enabled: bool = False
 
     @field_validator("database_url")
     @classmethod
@@ -71,14 +60,20 @@ class Settings(BaseSettings):
 
     @model_validator(mode="after")
     def _production_guards(self) -> "Settings":
-        # Fail closed: the console backend would print login codes to the host's logs.
+        # Fail closed: refuse to boot in production with development leftovers.
         if self.environment == "production":
-            if self.email_backend != "postmark":
-                raise ValueError("production requires EMAIL_BACKEND=postmark")
-            if self.postmark_server_token is None:
-                raise ValueError("production requires POSTMARK_SERVER_TOKEN")
-            if any("localhost" in o for o in self.cors_origins):
-                raise ValueError("production CORS_ORIGINS must not include localhost")
+            if not self.cors_origins or any(
+                o == "*" or "localhost" in o or "127.0.0.1" in o for o in self.cors_origins
+            ):
+                raise ValueError(
+                    "production CORS_ORIGINS must list the real frontend origin only "
+                    "(no '*', no localhost)"
+                )
+            if len(set(self.code_hmac_secret.get_secret_value())) < 10:
+                raise ValueError("production CODE_HMAC_SECRET looks like a placeholder")
+            host = make_url(self.database_url).host
+            if host in (None, "", "localhost", "127.0.0.1", "::1"):
+                raise ValueError("production DATABASE_URL must point at the real database")
         return self
 
 

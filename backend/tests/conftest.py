@@ -6,41 +6,28 @@ is used so `uv run pytest` works with no setup. Env vars must be set before `app
 
 import os
 import tempfile
+import uuid
 from collections.abc import AsyncIterator
-from dataclasses import dataclass, field
+from dataclasses import dataclass
+from datetime import UTC, datetime, timedelta
+from decimal import Decimal
 
 _tmpdir = tempfile.mkdtemp(prefix="santa-test-")
 os.environ["DATABASE_URL"] = os.environ.get(
     "TEST_DATABASE_URL", f"sqlite+aiosqlite:///{_tmpdir}/test.db"
 )
 os.environ["ENVIRONMENT"] = "test"
-os.environ["JWT_SECRET"] = "test-jwt-secret-" + "x" * 32
 os.environ["CODE_HMAC_SECRET"] = "test-code-secret-" + "y" * 32
-os.environ["EMAIL_BACKEND"] = "console"
 
 import httpx  # noqa: E402
 import pytest  # noqa: E402
 from sqlalchemy import delete  # noqa: E402
 
+from app.config import settings  # noqa: E402
 from app.db.models import Base, Event, Participant  # noqa: E402
 from app.db.session import SessionLocal, engine  # noqa: E402
-from app.dependencies import get_email_sender  # noqa: E402
 from app.main import app  # noqa: E402
-from app.services.email import EmailMessage  # noqa: E402
-
-
-@dataclass
-class FakeEmailSender:
-    sent: list[EmailMessage] = field(default_factory=list)
-
-    async def send(self, message: EmailMessage) -> None:
-        self.sent.append(message)
-
-    def last_code_for(self, email: str) -> str:
-        for m in reversed(self.sent):
-            if m.to == email and "code" in m.text:
-                return m.subject.rsplit(" ", 1)[-1]
-        raise AssertionError(f"no code sent to {email}")
+from app.services.security import keyed_hash  # noqa: E402
 
 
 @pytest.fixture(scope="session", autouse=True)
@@ -61,53 +48,58 @@ async def _clean_tables(_schema: None) -> AsyncIterator[None]:
 
 
 @pytest.fixture
-def emails() -> FakeEmailSender:
-    return FakeEmailSender()
-
-
-@pytest.fixture
-async def client(emails: FakeEmailSender) -> AsyncIterator[httpx.AsyncClient]:
-    app.dependency_overrides[get_email_sender] = lambda: emails
+async def client() -> AsyncIterator[httpx.AsyncClient]:
     transport = httpx.ASGITransport(app=app)
     async with httpx.AsyncClient(transport=transport, base_url="http://test") as c:
         yield c
     app.dependency_overrides.clear()
 
 
+def code_hash(code: str) -> str:
+    return keyed_hash(settings.code_hmac_secret.get_secret_value(), code)
+
+
 @dataclass
 class Seeded:
-    event_id: object
-    admin_email: str
-    emails: list[str]
+    event_id: uuid.UUID
+    participant_ids: dict[str, uuid.UUID]  # display name -> id
+    codes: dict[str, str]  # display name -> plaintext code (test-only; never stored)
 
 
-async def seed_event(
-    name: str = "Office", people: tuple[str, ...] = ("ana", "bruno", "cvita", "dino")
-) -> Seeded:
-    """First person is the admin. Emails are <name>@<event>.test."""
-    domain = f"{name.lower()}.test"
+# Obviously synthetic: nobody real is called Person A.
+SYNTHETIC_NAMES = ("Person A", "Person B", "Person C", "Person D")
+
+
+async def seed_event(names: tuple[str, ...] = SYNTHETIC_NAMES) -> Seeded:
+    """One event with the given participants and deterministic fake codes (111111, 222222...)."""
+    codes = {n: str(i + 1) * 6 for i, n in enumerate(names)}
     async with SessionLocal() as s:
-        event = Event(name=name)
+        event = Event(
+            name="Test Exchange",
+            budget_amount=Decimal("20.00"),
+            budget_currency="EUR",
+            exchange_at=datetime.now(UTC) + timedelta(days=30),
+            place="Nowhere Street 1",
+            after_event_message="Happy birthday to the synthetic person.",
+        )
         s.add(event)
         await s.flush()
-        addrs = [f"{p}@{domain}" for p in people]
-        s.add_all(
-            Participant(event_id=event.id, name=p.title(), email=a, is_admin=(i == 0))
-            for i, (p, a) in enumerate(zip(people, addrs, strict=True))
-        )
+        people = {
+            n: Participant(
+                event_id=event.id,
+                display_name=n,
+                vocative_name=n,
+                accusative_name=n,
+                note=f"Note for {n}",
+                code_hash=code_hash(codes[n]),
+            )
+            for n in names
+        }
+        s.add_all(people.values())
         await s.commit()
-        return Seeded(event.id, addrs[0], addrs)
+        return Seeded(event.id, {n: p.id for n, p in people.items()}, codes)
 
 
 @pytest.fixture
-async def office() -> Seeded:
+async def seeded() -> Seeded:
     return await seed_event()
-
-
-async def login(client: httpx.AsyncClient, emails: FakeEmailSender, email: str) -> dict[str, str]:
-    r = await client.post("/api/v1/auth/request-code", json={"email": email})
-    assert r.status_code == 202, r.text
-    code = emails.last_code_for(email)
-    r = await client.post("/api/v1/auth/verify-code", json={"email": email, "code": code})
-    assert r.status_code == 200, r.text
-    return {"Authorization": f"Bearer {r.json()['access_token']}"}

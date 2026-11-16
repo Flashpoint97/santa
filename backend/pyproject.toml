@@ -5,13 +5,9 @@ requires-python = ">=3.12"
 dependencies = [
     "alembic>=1.20.1",
     "asyncpg>=0.32.0",
-    "email-validator>=2.4.0",
     "fastapi>=0.115",
-    "httpx>=0.28.1",
-    "prometheus-client>=0.26.0",
     "pydantic>=2.9",
     "pydantic-settings>=2.16.3",
-    "pyjwt>=2.15.1",
     "sqlalchemy[asyncio]>=2.0.36",
     "structlog>=26.1.0",
     "uvicorn[standard]>=0.54.0",
@@ -20,6 +16,7 @@ dependencies = [
 [dependency-groups]
 dev = [
     "aiosqlite>=0.22.1",
+    "httpx>=0.28.1",
     "hypothesis>=6.170.15",
     "pytest>=9.2.0",
     "pytest-asyncio>=1.5.0",
@@ -38,6 +35,8 @@ ignore = ["B008"]  # FastAPI's Depends() in defaults is idiomatic
 [tool.ruff.lint.per-file-ignores]
 "tests/**" = ["S101", "S105", "S106"]
 "alembic/**" = ["E501"]
+# Kept byte-for-byte as written: the seeded Random is the test oracle's, not a security use.
+"tests/test_draw.py" = ["S311", "PT018"]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
