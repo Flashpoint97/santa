@@ -14,7 +14,7 @@
       "accusative_name": "Osobu A",
       "partner": "Osoba B",
       "note": "Izmišljena poruka za Osoba A.",
-      "gif": "osoba-a.gif"
+      "gif": "dev-gifs/osoba-a.gif"
     },
     {
       "display_name": "Osoba B",
@@ -22,7 +22,7 @@
       "accusative_name": "Osobu B",
       "partner": "Osoba A",
       "note": "Izmišljena poruka za Osoba B.",
-      "gif": "osoba-b.gif"
+      "gif": "dev-gifs/osoba-b.gif"
     },
     {
       "display_name": "Osoba C",
@@ -30,7 +30,7 @@
       "accusative_name": "Osobu C",
       "partner": "Osoba D",
       "note": "Izmišljena poruka za Osoba C.",
-      "gif": "osoba-c.gif"
+      "gif": "dev-gifs/osoba-c.gif"
     },
     {
       "display_name": "Osoba D",
@@ -38,7 +38,7 @@
       "accusative_name": "Osobu D",
       "partner": "Osoba C",
       "note": "Izmišljena poruka za Osoba D.",
-      "gif": "osoba-d.gif"
+      "gif": "dev-gifs/osoba-d.gif"
     },
     {
       "display_name": "Osoba E",
@@ -46,7 +46,7 @@
       "accusative_name": "Osobu E",
       "partner": null,
       "note": "Izmišljena poruka za Osoba E.",
-      "gif": "osoba-e.gif"
+      "gif": "dev-gifs/osoba-e.gif"
     },
     {
       "display_name": "Osoba F",
@@ -54,7 +54,7 @@
       "accusative_name": "Osobu F",
       "partner": null,
       "note": "Izmišljena poruka za Osoba F.",
-      "gif": "osoba-f.gif"
+      "gif": "dev-gifs/osoba-f.gif"
     },
     {
       "display_name": "Osoba G",
@@ -62,7 +62,7 @@
       "accusative_name": "Osobu G",
       "partner": null,
       "note": "Izmišljena poruka za Osoba G.",
-      "gif": "osoba-g.gif"
+      "gif": "dev-gifs/osoba-g.gif"
     },
     {
       "display_name": "Osoba H",
@@ -70,7 +70,7 @@
       "accusative_name": "Osobu H",
       "partner": null,
       "note": "Izmišljena poruka za Osoba H.",
-      "gif": "osoba-h.gif"
+      "gif": "dev-gifs/osoba-h.gif"
     }
   ]
 }

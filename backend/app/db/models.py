@@ -199,7 +199,8 @@ class Animation(Base):
     participant_id: Mapped[uuid.UUID] = mapped_column(
         Uuid, ForeignKey("participants.id", ondelete="CASCADE"), nullable=False, unique=True
     )
-    video: Mapped[bytes] = mapped_column(LargeBinary, nullable=False)
+    # Deferred: the blob is only ever loaded by the animation route, never as a side effect.
+    video: Mapped[bytes] = mapped_column(LargeBinary, nullable=False, deferred=True)
     content_type: Mapped[str] = mapped_column(String(100), nullable=False)
     byte_size: Mapped[int] = mapped_column(Integer, nullable=False)
 

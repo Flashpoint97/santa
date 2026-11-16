@@ -2,17 +2,24 @@
 
 The scope (participant_id, event_id) is fixed at construction from the verified Session and
 applied in the WHERE clause of every query; no method takes an id from the caller. Reveal and
-animation reads (ticket 05) are added here so they inherit the same scope.
+the receiver's animation share one join through the caller's own Assignment.
 """
 
+from dataclasses import dataclass
 from typing import Any, cast
 
 from sqlalchemy import CursorResult, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.db.models import Assignment, Event, Participant, utcnow
+from app.db.models import Animation, Assignment, Event, Participant, utcnow
 from app.schemas.me import EventOut, MeResponse, RevealResponse
 from app.services.sessions import Principal
+
+
+@dataclass(frozen=True)
+class AnimationPayload:
+    video: bytes
+    content_type: str
 
 
 class ParticipantStore:
@@ -84,3 +91,23 @@ class ParticipantStore:
             receiver_accusative_name=receiver.accusative_name,
             first_time=cast(CursorResult[Any], result).rowcount == 1,
         )
+
+    async def receiver_animation(self) -> AnimationPayload | None:
+        """The clip of the caller's own receiver, or None (no draw, or no clip stored).
+
+        Resolved through the caller's Assignment, so there is no id to guess. This is the only
+        query that loads the video blob.
+        """
+        row = (
+            await self._db.execute(
+                select(Animation.video, Animation.content_type)
+                .join(Assignment, Assignment.receiver_id == Animation.participant_id)
+                .where(
+                    Assignment.giver_id == self._participant_id,
+                    Assignment.event_id == self._event_id,
+                )
+            )
+        ).one_or_none()
+        if row is None:
+            return None
+        return AnimationPayload(video=row.video, content_type=row.content_type)

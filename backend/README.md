@@ -34,7 +34,7 @@ committed; `list.example.json` is a placeholder with obviously fake data.
       "accusative_name": "string",   // used in "you give to ..."
       "partner": "other display_name or null", // must point back at this person
       "note": "personal note (optional)",
-      "gif": "file.gif (optional, relative to the list file; converted in a later step)"
+      "gif": "file.gif (required; path relative to the list file's directory)"
     }
   ]
 }
@@ -42,11 +42,32 @@ committed; `list.example.json` is a placeholder with obviously fake data.
 (The `//` comments are explanatory only: real JSON has no comments.)
 
 `load` checks everything first (unique names, partner links valid and symmetric, a real
-Zagreb local time) and writes nothing if anything is wrong. It refuses if an event already exists.
+Zagreb local time, every GIF present, a real GIF by its magic bytes and at most 30 MB) and
+writes nothing if anything is wrong. It refuses if an event already exists.
+
+## Animations
+
+Each participant's GIF is the clip that shows *that person*. `load` converts every GIF, before
+it opens the database transaction, to a muted H.264 MP4 (yuv420p, even sides, at most 720 px on
+the long side, `+faststart`, CRF 26) with a bundled ffmpeg from the `imageio-ffmpeg` package, so
+nothing is installed system-wide. The MP4s are stored in the `animations` table in the same
+transaction as the event. `GET /api/v1/me/receiver/animation` serves a participant only the clip
+of the person they drew (`video/mp4`, `Cache-Control: private, no-store`; 401 without a Session,
+404 without a draw or clip). Nothing but that route loads the video blob.
+
+For local development, generate 8 synthetic labelled placeholder GIFs (needs the dev dependency
+Pillow) into the gitignored `dev-gifs/` directory that `list.example.json` points at:
+
+```
+uv run python scripts/make_placeholder_gifs.py     # writes dev-gifs/osoba-a.gif ... osoba-h.gif
+```
+
+GIFs and videos are never committed (`*.gif`, `*.mp4` and `dev-gifs/` are gitignored).
 
 ## Dev seed
 
 ```
+uv run python scripts/make_placeholder_gifs.py   # once: the example list needs its GIFs
 uv run python -m app.cli load list.example.json
 ```
 

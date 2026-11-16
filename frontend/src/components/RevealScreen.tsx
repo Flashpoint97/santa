@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
+import RevealAnimation from "@/components/RevealAnimation";
 import { ApiError, getMe, reveal, type Reveal } from "@/lib/api";
 import { firstTimeMessage, reminderMessage } from "@/lib/revealMessages";
 import { clearToken, getToken } from "@/lib/session";
@@ -110,9 +111,7 @@ export default function RevealScreen() {
       <p>{message}</p>
       <h1>{result.receiver_display_name}</h1>
 
-      {/* TICKET 05: the looping Animation of the receiver goes here (a plain <video>, fetched
-          with the bearer token from GET /me/receiver/animation). Nothing is built yet. */}
-      <div data-slot="reveal-animation" />
+      <RevealAnimation />
 
       <p>
         <Link href="/countdown/">Natrag na odbrojavanje</Link>
