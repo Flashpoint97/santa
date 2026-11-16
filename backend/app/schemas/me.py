@@ -22,3 +22,11 @@ class MeResponse(BaseModel):
     event: EventOut
     drawn: bool
     has_revealed: bool
+
+
+class RevealResponse(BaseModel):
+    """The caller's own receiver, resolved from their Assignment (never from request input)."""
+
+    receiver_display_name: str
+    receiver_accusative_name: str
+    first_time: bool  # true for exactly one call: the one that set first_revealed_at

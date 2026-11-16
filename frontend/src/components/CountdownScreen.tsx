@@ -88,7 +88,13 @@ export default function CountdownScreen() {
         afterEventMessage={event.after_event_message}
       />
 
-      {!me.drawn && <p>Izvlačenje još nije održano. Navrati malo kasnije.</p>}
+      {me.drawn ? (
+        <button type="button" onClick={() => router.push("/reveal/")}>
+          Otvori svoj poklon
+        </button>
+      ) : (
+        <p>Izvlačenje još nije održano. Navrati malo kasnije.</p>
+      )}
     </main>
   );
 }

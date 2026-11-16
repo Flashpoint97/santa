@@ -12,4 +12,4 @@ npm run lint && npm run typecheck && npm run build   # build writes the static s
 - `NEXT_PUBLIC_API_URL`: backend base URL (public, no secrets).
 - `BASE_PATH`: build-time sub-path for GitHub Pages (the repo name, e.g. `/santa`). Empty locally.
 
-Layout: `src/lib/` (API client, session token, formatting), `src/components/` (screens), `src/app/` (routes: `/` code screen, `/countdown/`).
+Layout: `src/lib/` (API client, session token, formatting), `src/components/` (screens), `src/app/` (routes: `/` code screen, `/countdown/`, `/reveal/`). Reveal message wording lives in `src/lib/revealMessages.ts` (draft copy).

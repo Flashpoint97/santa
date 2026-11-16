@@ -28,6 +28,13 @@ export type Me = {
   has_revealed: boolean;
 };
 
+export type Reveal = {
+  receiver_display_name: string;
+  receiver_accusative_name: string;
+  /** True for exactly one call per participant (until a re-draw). */
+  first_time: boolean;
+};
+
 /** The server answered with a non-2xx status. */
 export class ApiError extends Error {
   readonly status: number;
@@ -72,6 +79,14 @@ export function login(code: string): Promise<SessionResponse> {
 /** GET /me. 401 = missing, unknown or expired token. */
 export function getMe(token: string): Promise<Me> {
   return request<Me>("/me", {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+}
+
+/** POST /me/reveal. 401 = bad token, 404 = the draw has not happened yet. */
+export function reveal(token: string): Promise<Reveal> {
+  return request<Reveal>("/me/reveal", {
+    method: "POST",
     headers: { Authorization: `Bearer ${token}` },
   });
 }

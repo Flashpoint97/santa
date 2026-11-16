@@ -2,14 +2,16 @@
 
 The scope (participant_id, event_id) is fixed at construction from the verified Session and
 applied in the WHERE clause of every query; no method takes an id from the caller. Reveal and
-animation reads (tickets 04/05) are added here so they inherit the same scope.
+animation reads (ticket 05) are added here so they inherit the same scope.
 """
 
-from sqlalchemy import select
+from typing import Any, cast
+
+from sqlalchemy import CursorResult, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.db.models import Event, Participant
-from app.schemas.me import EventOut, MeResponse
+from app.db.models import Assignment, Event, Participant, utcnow
+from app.schemas.me import EventOut, MeResponse, RevealResponse
 from app.services.sessions import Principal
 
 
@@ -47,4 +49,38 @@ class ParticipantStore:
             ),
             drawn=event.drawn_at is not None,
             has_revealed=participant.first_revealed_at is not None,
+        )
+
+    async def reveal(self) -> RevealResponse | None:
+        """The caller's receiver, or None before the draw. Commits.
+
+        `first_time` is decided by one conditional UPDATE: only the call that moves
+        first_revealed_at from NULL reports True, so concurrent calls cannot both win.
+        """
+        receiver = (
+            await self._db.execute(
+                select(Participant.display_name, Participant.accusative_name)
+                .join(Assignment, Assignment.receiver_id == Participant.id)
+                .where(
+                    Assignment.giver_id == self._participant_id,
+                    Assignment.event_id == self._event_id,
+                )
+            )
+        ).one_or_none()
+        if receiver is None:
+            return None
+        result = await self._db.execute(
+            update(Participant)
+            .where(
+                Participant.id == self._participant_id,
+                Participant.event_id == self._event_id,
+                Participant.first_revealed_at.is_(None),
+            )
+            .values(first_revealed_at=utcnow())
+        )
+        await self._db.commit()
+        return RevealResponse(
+            receiver_display_name=receiver.display_name,
+            receiver_accusative_name=receiver.accusative_name,
+            first_time=cast(CursorResult[Any], result).rowcount == 1,
         )

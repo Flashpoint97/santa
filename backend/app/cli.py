@@ -1,6 +1,7 @@
 """Organizer CLI: `python -m app.cli <command>`. Runs against whatever DATABASE_URL points at.
 
 Output never includes assignments. Codes are printed once, by `load`, and only their HMAC is stored.
+`draw` prints only the participant count.
 """
 
 import argparse
@@ -14,6 +15,7 @@ from sqlalchemy.ext.asyncio import AsyncEngine, async_sessionmaker
 
 from app.config import settings
 from app.db.session import build_engine
+from app.services.drawing import AlreadyDrawnError, DrawImpossibleError, NoEventError, run_draw
 from app.services.list_file import ListFile, ListFileError, parse_list_file
 from app.services.loader import EventExistsError, load_event
 
@@ -47,11 +49,38 @@ async def _load(engine: AsyncEngine, parsed: ListFile) -> int:
     return 0
 
 
+async def _draw(engine: AsyncEngine, *, redraw: bool) -> int:
+    async with async_sessionmaker(engine, expire_on_commit=False)() as db:
+        try:
+            count = await run_draw(db, redraw=redraw)
+        except NoEventError:
+            print("error: no event is loaded; nothing was written.", file=sys.stderr)
+        except AlreadyDrawnError:
+            print(
+                "error: the draw has already happened; nothing was written. "
+                "Use --redraw to replace it.",
+                file=sys.stderr,
+            )
+        except DrawImpossibleError:
+            print(
+                "error: no valid draw exists with these Partner links; nothing was written. "
+                "Fix the list and try again.",
+                file=sys.stderr,
+            )
+        else:
+            # Only the outcome: never who drew whom.
+            print(f"Draw complete: {count} participants.")
+            return 0
+    return 1
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="python -m app.cli", description=__doc__)
     sub = parser.add_subparsers(dest="command", required=True)
     load = sub.add_parser("load", help="validate a list file, create the event and print Codes")
     load.add_argument("list_file", type=Path)
+    draw = sub.add_parser("draw", help="draw the Assignments (prints only the participant count)")
+    draw.add_argument("--redraw", action="store_true", help="replace an existing draw, atomically")
     return parser
 
 
@@ -62,6 +91,8 @@ async def _run(args: argparse.Namespace, parsed: ListFile | None) -> int:
         if args.command == "load":
             assert parsed is not None  # noqa: S101 - set by main() for this command
             return await _load(engine, parsed)
+        if args.command == "draw":
+            return await _draw(engine, redraw=args.redraw)
         raise AssertionError(args.command)  # pragma: no cover - argparse enforces the choices
     finally:
         await engine.dispose()
