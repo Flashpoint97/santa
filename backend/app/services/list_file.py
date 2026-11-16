@@ -66,7 +66,8 @@ class ParticipantEntry(BaseModel):
     accusative_name: Name
     partner: Name | None = None  # the partner's display_name; must point back
     note: str = ""
-    gif: str | None = None  # path relative to the list file; converted by a later step
+    # Path relative to the list file's directory; required, checked and converted at load time.
+    gif: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=500)]
 
 
 class ListFile(BaseModel):

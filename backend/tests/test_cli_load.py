@@ -7,12 +7,14 @@ from typing import Any
 
 import pytest
 from sqlalchemy import func, select
+from sqlalchemy.orm import undefer
 
 from app.cli import main
-from app.db.models import Event, Participant, Session
+from app.db.models import Animation, Event, Participant, Session
 from app.db.session import SessionLocal
 from app.services.list_file import ListFileError, parse_list_file
 from tests.conftest import code_hash
+from tests.gifs import make_gif
 
 EXAMPLE = Path(__file__).resolve().parent.parent / "list.example.json"
 
@@ -25,7 +27,7 @@ def valid_list() -> dict[str, Any]:
             "accusative_name": name,
             "partner": partner,
             "note": f"Note {name}",
-            "gif": None,
+            "gif": f"{name.lower().replace(' ', '-')}.gif",
         }
 
     return {
@@ -106,6 +108,12 @@ def test_errors_do_not_echo_values() -> None:
 
 
 def write(tmp_path: Path, data: dict[str, Any]) -> Path:
+    """Write the list file plus a tiny GIF for each participant that names one."""
+    for person in data["participants"]:
+        gif = tmp_path / person.get("gif", "")
+        if person.get("gif") and not gif.exists():
+            gif.parent.mkdir(parents=True, exist_ok=True)
+            gif.write_bytes(make_gif())
     path = tmp_path / "list.json"
     path.write_text(json.dumps(data), encoding="utf-8")
     return path
@@ -197,3 +205,53 @@ async def test_invalid_list_exits_nonzero_and_writes_nothing(
 async def test_missing_file_exits_nonzero(tmp_path: Path) -> None:
     assert await run_cli("load", str(tmp_path / "nope.json")) == 1
     assert await count(Event) == 0
+
+
+async def test_load_stores_one_mp4_animation_per_participant(tmp_path: Path) -> None:
+    assert await run_cli("load", str(write(tmp_path, valid_list()))) == 0
+    async with SessionLocal() as s:
+        people = {p.id: p.display_name for p in (await s.scalars(select(Participant))).all()}
+        rows = (await s.scalars(select(Animation).options(undefer(Animation.video)))).all()
+    assert sorted(people[a.participant_id] for a in rows) == sorted(people.values())
+    for a in rows:
+        assert a.content_type == "video/mp4"
+        assert a.video[4:8] == b"ftyp"
+        assert a.byte_size == len(a.video) > 0
+
+
+async def test_gif_paths_are_relative_to_the_list_files_directory(tmp_path: Path) -> None:
+    data = valid_list()
+    for person in data["participants"]:
+        person["gif"] = f"media/{person['gif']}"
+    assert await run_cli("load", str(write(tmp_path, data))) == 0
+    assert await count(Animation) == 4
+
+
+@pytest.mark.parametrize("kind", ["missing", "not-a-gif", "empty", "key-absent", "absolute"])
+async def test_a_missing_or_invalid_gif_fails_validation_and_writes_nothing(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], kind: str
+) -> None:
+    data = valid_list()
+    path = write(tmp_path, data)
+    target = tmp_path / data["participants"][2]["gif"]
+    if kind == "missing":
+        target.unlink()
+    elif kind == "not-a-gif":
+        target.write_bytes(b"\x89PNG\r\n\x1a\n" + b"0" * 64)
+    elif kind == "empty":
+        target.write_bytes(b"")
+    elif kind == "key-absent":
+        del data["participants"][2]["gif"]
+        path.write_text(json.dumps(data), encoding="utf-8")
+    else:
+        data["participants"][2]["gif"] = str(target)
+        path.write_text(json.dumps(data), encoding="utf-8")
+    assert await run_cli("load", str(path)) == 1
+    captured = capsys.readouterr()
+    assert "nothing was written" in captured.err
+    # A key that is absent is reported by pydantic ("participants.2.gif"), the rest by us.
+    assert ("participants.2.gif" if kind == "key-absent" else "participants[2].gif") in captured.err
+    assert captured.out == ""
+    assert await count(Event) == 0
+    assert await count(Participant) == 0
+    assert await count(Animation) == 0

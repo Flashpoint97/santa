@@ -41,3 +41,28 @@ async def reveal(store: Store, response: Response) -> RevealResponse:
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail="The draw has not happened yet")
     response.headers["Cache-Control"] = "private, no-store"
     return result
+
+
+@router.get(
+    "/me/receiver/animation",
+    status_code=status.HTTP_200_OK,
+    response_model=None,
+    response_class=Response,
+    summary="The looping video of the person the caller gives a gift to",
+    responses={
+        200: {"content": {"video/mp4": {}}, "description": "The receiver's muted MP4"},
+        401: {"description": "Missing, unknown or expired token"},
+        404: {"description": "No draw yet, or no animation stored"},
+    },
+)
+async def get_receiver_animation(store: Store) -> Response:
+    # No id in the path: the receiver comes from the caller's own Assignment, so there is
+    # nothing to enumerate and another participant's clip is unreachable.
+    animation = await store.receiver_animation()
+    if animation is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="No animation available")
+    return Response(
+        content=animation.video,
+        media_type=animation.content_type,
+        headers={"Cache-Control": "private, no-store", "X-Content-Type-Options": "nosniff"},
+    )

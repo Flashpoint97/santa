@@ -21,3 +21,8 @@ out/
 
 # Agent worktrees (local only)
 /.claude/worktrees/
+
+# Animations are private media (and generated dev placeholders): never commit them
+dev-gifs/
+*.gif
+*.mp4

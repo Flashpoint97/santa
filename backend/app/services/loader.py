@@ -1,12 +1,14 @@
 """Create the event, participants and Codes from a validated list. No FastAPI imports."""
 
+from collections.abc import Mapping
 from dataclasses import dataclass
 
 import structlog
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.db.models import Event, Participant
+from app.db.models import Animation, Event, Participant
+from app.services.animation import VIDEO_CONTENT_TYPE
 from app.services.list_file import ListFile
 from app.services.security import generate_login_code, keyed_hash
 
@@ -23,11 +25,17 @@ class IssuedCode:
     code: str  # plaintext, exists only in this return value and the organizer's terminal
 
 
-async def load_event(db: AsyncSession, parsed: ListFile, *, secret: str) -> list[IssuedCode]:
+async def load_event(
+    db: AsyncSession, parsed: ListFile, videos: Mapping[str, bytes], *, secret: str
+) -> list[IssuedCode]:
     """Write everything in one transaction, then return the plaintext Codes (never stored).
 
+    `videos` holds the already-converted MP4 of each participant, keyed by casefolded
+    display_name: conversion is slow and can fail, so it happens before this transaction opens.
     Raises EventExistsError, writing nothing, if an event is already present.
     """
+    if videos.keys() != {p.display_name.casefold() for p in parsed.participants}:
+        raise ValueError("videos must cover exactly the participants in the list")
     if await db.scalar(select(func.count()).select_from(Event)):
         raise EventExistsError
 
@@ -63,6 +71,15 @@ async def load_event(db: AsyncSession, parsed: ListFile, *, secret: str) -> list
         )
     db.add_all(rows.values())
     await db.flush()
+    db.add_all(
+        Animation(
+            participant_id=rows[key].id,
+            video=video,
+            content_type=VIDEO_CONTENT_TYPE,
+            byte_size=len(video),
+        )
+        for key, video in videos.items()
+    )
     # Partner links after insert (self-referencing FK); the list was validated as symmetric.
     for entry in parsed.participants:
         if entry.partner is not None:

@@ -15,15 +15,18 @@ from sqlalchemy.ext.asyncio import AsyncEngine, async_sessionmaker
 
 from app.config import settings
 from app.db.session import build_engine
+from app.services.animation import prepare_animations
 from app.services.drawing import AlreadyDrawnError, DrawImpossibleError, NoEventError, run_draw
 from app.services.list_file import ListFile, ListFileError, parse_list_file
 from app.services.loader import EventExistsError, load_event
 
 
-def _read_list(path: Path) -> ListFile | None:
-    """Read and validate the list file; report problems on stderr and return None."""
+def _read_list(path: Path) -> tuple[ListFile, dict[str, bytes]] | None:
+    """Read and validate the list file and convert its GIFs; on any problem report it on
+    stderr and return None. Nothing here touches the database."""
     try:
-        return parse_list_file(path.read_bytes())
+        parsed = parse_list_file(path.read_bytes())
+        return parsed, prepare_animations(parsed, path.resolve().parent)
     except OSError as exc:
         print(f"error: cannot read {path}: {exc.strerror}", file=sys.stderr)
     except ListFileError as err:
@@ -33,11 +36,11 @@ def _read_list(path: Path) -> ListFile | None:
     return None
 
 
-async def _load(engine: AsyncEngine, parsed: ListFile) -> int:
+async def _load(engine: AsyncEngine, parsed: ListFile, videos: dict[str, bytes]) -> int:
     async with async_sessionmaker(engine, expire_on_commit=False)() as db:
         try:
             issued = await load_event(
-                db, parsed, secret=settings.code_hmac_secret.get_secret_value()
+                db, parsed, videos, secret=settings.code_hmac_secret.get_secret_value()
             )
         except EventExistsError:
             print("error: an event already exists; nothing was written.", file=sys.stderr)
@@ -84,13 +87,13 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
-async def _run(args: argparse.Namespace, parsed: ListFile | None) -> int:
+async def _run(args: argparse.Namespace, prepared: tuple[ListFile, dict[str, bytes]] | None) -> int:
     # A fresh engine per invocation: the CLI is a short-lived process with its own event loop.
     engine = build_engine(settings.database_url)
     try:
         if args.command == "load":
-            assert parsed is not None  # noqa: S101 - set by main() for this command
-            return await _load(engine, parsed)
+            assert prepared is not None  # noqa: S101 - set by main() for this command
+            return await _load(engine, *prepared)
         if args.command == "draw":
             return await _draw(engine, redraw=args.redraw)
         raise AssertionError(args.command)  # pragma: no cover - argparse enforces the choices
@@ -102,12 +105,13 @@ def main(argv: Sequence[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     # Keep stdout for the command's own output (Codes); diagnostics go to stderr.
     structlog.configure(logger_factory=structlog.PrintLoggerFactory(file=sys.stderr))
-    parsed: ListFile | None = None
+    prepared: tuple[ListFile, dict[str, bytes]] | None = None
     if args.command == "load":
-        parsed = _read_list(args.list_file)  # validate everything before touching the database
-        if parsed is None:
+        # Validate the list and convert the GIFs before touching the database.
+        prepared = _read_list(args.list_file)
+        if prepared is None:
             return 1
-    return asyncio.run(_run(args, parsed))
+    return asyncio.run(_run(args, prepared))
 
 
 if __name__ == "__main__":

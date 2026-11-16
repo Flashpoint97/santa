@@ -90,3 +90,30 @@ export function reveal(token: string): Promise<Reveal> {
     headers: { Authorization: `Bearer ${token}` },
   });
 }
+
+/**
+ * GET /me/receiver/animation as a Blob. A <video src> cannot send an Authorization header,
+ * so the video is fetched here with the bearer token and played from an object URL.
+ * 401 = bad token, 404 = no draw or no animation.
+ */
+export async function getReceiverAnimation(
+  token: string,
+  signal?: AbortSignal,
+): Promise<Blob> {
+  let response: Response;
+  try {
+    response = await fetch(`${API_URL}${API_PREFIX}/me/receiver/animation`, {
+      headers: { Authorization: `Bearer ${token}` },
+      cache: "no-store",
+      signal,
+    });
+  } catch (error) {
+    // An abort means the caller left the page: pass it through as is.
+    if (error instanceof DOMException && error.name === "AbortError") throw error;
+    throw new NetworkError();
+  }
+  if (!response.ok) {
+    throw new ApiError(response.status);
+  }
+  return await response.blob();
+}
