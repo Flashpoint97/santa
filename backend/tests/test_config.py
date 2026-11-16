@@ -23,6 +23,7 @@ def test_defaults_match_the_design() -> None:
     assert (s.login_failures_per_ip, s.login_failures_per_ip_window_minutes) == (10, 15)
     assert (s.login_failures_global, s.login_failures_global_window_minutes) == (50, 60)
     assert s.cors_origins == ["http://localhost:3000"]
+    assert s.trusted_proxy_hops == 0  # never trust X-Forwarded-For unless told how many hops
 
 
 def test_production_config_accepted() -> None:
