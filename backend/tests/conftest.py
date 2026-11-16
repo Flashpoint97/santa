@@ -7,7 +7,7 @@ is used so `uv run pytest` works with no setup. Env vars must be set before `app
 import os
 import tempfile
 import uuid
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Iterator
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
@@ -21,6 +21,7 @@ os.environ["CODE_HMAC_SECRET"] = "test-code-secret-" + "y" * 32
 
 import httpx  # noqa: E402
 import pytest  # noqa: E402
+import structlog  # noqa: E402
 from sqlalchemy import delete  # noqa: E402
 
 from app.config import settings  # noqa: E402
@@ -45,6 +46,15 @@ async def _clean_tables(_schema: None) -> AsyncIterator[None]:
     async with engine.begin() as conn:
         for table in reversed(Base.metadata.sorted_tables):
             await conn.execute(delete(table))
+
+
+@pytest.fixture(autouse=True)
+def _restore_structlog() -> Iterator[None]:
+    """The CLI points structlog at the stderr of the moment; undo that so a later test never
+    logs to a stream pytest has already closed."""
+    saved = structlog.get_config()
+    yield
+    structlog.configure(**saved)
 
 
 @pytest.fixture

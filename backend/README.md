@@ -53,6 +53,17 @@ uv run python -m app.cli load list.example.json
 prints one 6-digit Code per participant, once (only their HMAC is stored). To start over, drop and
 recreate the dev database, then `alembic upgrade head`.
 
+## Draw
+
+```
+uv run python -m app.cli draw             # prints only "Draw complete: N participants."
+uv run python -m app.cli draw --redraw    # replaces an existing draw atomically
+```
+
+Exclusions are the Partner links (both directions). A second `draw` is refused without `--redraw`;
+an impossible draw writes nothing and exits 1. A re-draw also resets everyone's first-reveal flag.
+Assignments are never printed or logged.
+
 ## Checks
 
 ```
