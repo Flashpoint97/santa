@@ -25,7 +25,6 @@ async def test_health_503_with_db_down(
     assert r.json()["status"] == "degraded"
 
 
-async def test_no_routes_beyond_health_yet(client: httpx.AsyncClient) -> None:
-    # The old email-login and admin endpoints are gone; login arrives in a later slice.
-    for path in ("/api/v1/auth/request-code", "/api/v1/me", "/api/v1/admin/participants"):
+async def test_removed_email_and_admin_routes_stay_gone(client: httpx.AsyncClient) -> None:
+    for path in ("/api/v1/auth/request-code", "/api/v1/admin/participants"):
         assert (await client.get(path)).status_code == 404

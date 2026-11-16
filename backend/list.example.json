@@ -1,0 +1,76 @@
+{
+  "event": {
+    "name": "Probni Tajni Djed Mraz",
+    "budget_amount": "20.00",
+    "budget_currency": "EUR",
+    "exchange_at": "2026-12-25T12:00",
+    "place": "Izmišljena ulica 1, Nigdjegrad",
+    "after_event_message": "Sretan rođendan, izmišljena osobo!"
+  },
+  "participants": [
+    {
+      "display_name": "Osoba A",
+      "vocative_name": "Osobo A",
+      "accusative_name": "Osobu A",
+      "partner": "Osoba B",
+      "note": "Izmišljena poruka za Osoba A.",
+      "gif": "osoba-a.gif"
+    },
+    {
+      "display_name": "Osoba B",
+      "vocative_name": "Osobo B",
+      "accusative_name": "Osobu B",
+      "partner": "Osoba A",
+      "note": "Izmišljena poruka za Osoba B.",
+      "gif": "osoba-b.gif"
+    },
+    {
+      "display_name": "Osoba C",
+      "vocative_name": "Osobo C",
+      "accusative_name": "Osobu C",
+      "partner": "Osoba D",
+      "note": "Izmišljena poruka za Osoba C.",
+      "gif": "osoba-c.gif"
+    },
+    {
+      "display_name": "Osoba D",
+      "vocative_name": "Osobo D",
+      "accusative_name": "Osobu D",
+      "partner": "Osoba C",
+      "note": "Izmišljena poruka za Osoba D.",
+      "gif": "osoba-d.gif"
+    },
+    {
+      "display_name": "Osoba E",
+      "vocative_name": "Osobo E",
+      "accusative_name": "Osobu E",
+      "partner": null,
+      "note": "Izmišljena poruka za Osoba E.",
+      "gif": "osoba-e.gif"
+    },
+    {
+      "display_name": "Osoba F",
+      "vocative_name": "Osobo F",
+      "accusative_name": "Osobu F",
+      "partner": null,
+      "note": "Izmišljena poruka za Osoba F.",
+      "gif": "osoba-f.gif"
+    },
+    {
+      "display_name": "Osoba G",
+      "vocative_name": "Osobo G",
+      "accusative_name": "Osobu G",
+      "partner": null,
+      "note": "Izmišljena poruka za Osoba G.",
+      "gif": "osoba-g.gif"
+    },
+    {
+      "display_name": "Osoba H",
+      "vocative_name": "Osobo H",
+      "accusative_name": "Osobu H",
+      "partner": null,
+      "note": "Izmišljena poruka za Osoba H.",
+      "gif": "osoba-h.gif"
+    }
+  ]
+}
