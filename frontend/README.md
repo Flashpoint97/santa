@@ -11,7 +11,7 @@ npm run lint && npm run typecheck && npm run build   # build writes the static s
 
 - `NEXT_PUBLIC_API_URL`: backend base URL (public, no secrets).
 - `BASE_PATH`: build-time sub-path for GitHub Pages (the repo name, e.g. `/santa`). Empty locally.
-- Deploy: the Pages workflow (`deploy-pages.yml`) builds with `BASE_PATH=/<repo>` and `NEXT_PUBLIC_API_URL` from the repository variable `API_URL`, then publishes `out/`. See `DEPLOY.md`.
+- Deploy: the Pages workflow (`deploy-pages.yml`) builds with `BASE_PATH=/<repo>` and `NEXT_PUBLIC_API_URL` from the repository variable `API_URL`, then publishes `out/`.
 
 Theme "North Pole Post": design tokens and base styles in `src/app/globals.css`, fonts via `next/font/google` in `src/app/layout.tsx` (self-hosted at build time), shared pieces in `src/components/ui/` (`Envelope`, `PaperCard`, `Stamp`, `Button`, `TextLink`), per-screen CSS Modules next to the screens. Light only; plain CSS, no UI library.
 

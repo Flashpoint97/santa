@@ -1,6 +1,6 @@
 # Render Blueprint for the Secret Santa API (free web service). No secrets in this file:
 # the three `sync: false` variables are typed into Render's dashboard once, at Blueprint creation.
-# Step-by-step guide: DEPLOY.md
+# The step-by-step deploy guide is kept privately by the organizer (not in the repo).
 services:
   - type: web
     name: santa-api

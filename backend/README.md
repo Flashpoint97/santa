@@ -137,7 +137,7 @@ After a deploy, prove it from outside (sends 13 wrong Codes, each with a differe
 uv run python scripts/check_ip_spoofing.py https://<api-url>
 ```
 
-Deployment: `render.yaml` at the repo root and `DEPLOY.md` (the production environment fails to
+Deployment: `render.yaml` at the repo root (the production environment fails to
 boot without a real `CODE_HMAC_SECRET`, `DATABASE_URL` and non-localhost `CORS_ORIGINS`).
 
 ## Checks

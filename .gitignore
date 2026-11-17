@@ -26,3 +26,10 @@ out/
 dev-gifs/
 *.gif
 *.mp4
+
+# Local-only docs and assistant files (kept on the organizer's machine, never on GitHub)
+/.scratch/
+/CLAUDE.md
+/backend.md
+/DEPLOY.md
+/frontend/AGENTS.md

@@ -3,7 +3,7 @@ name: Deploy frontend to GitHub Pages
 # Builds the static Next.js export and publishes it on every push to master (or by hand).
 # Needs one repository VARIABLE (not a secret: the API URL is public in the bundle anyway):
 #   Settings > Secrets and variables > Actions > Variables > API_URL = https://<service>.onrender.com
-# And Settings > Pages > Source = "GitHub Actions". See DEPLOY.md.
+# And Settings > Pages > Source = "GitHub Actions".
 
 on:
   push:
