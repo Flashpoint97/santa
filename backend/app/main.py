@@ -49,6 +49,12 @@ def create_app() -> FastAPI:
             )
         return JSONResponse({"status": "ok", "db": "ok"})
 
+    # Keep-alive target for the scheduled ping (Render's free tier sleeps after 15 idle minutes).
+    # Deliberately does NOT touch the database, so Neon can still scale to zero between visits.
+    @app.get("/ping", summary="Liveness only (no DB)", status_code=200, include_in_schema=False)
+    async def ping() -> JSONResponse:
+        return JSONResponse({"status": "ok"})
+
     return app
 
 

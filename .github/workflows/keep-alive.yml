@@ -1,0 +1,37 @@
+# Keeps the free Render API awake until the gift exchange, so visitors don't wait ~1 minute for a
+# cold start. Pings /ping, which does not touch the database (Neon can still scale to zero).
+# Render sleeps after 15 idle minutes; GitHub runs schedules best-effort, so we ping every 10.
+name: Keep API awake
+
+on:
+  schedule:
+    - cron: "*/10 * * * *"
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: keep-alive
+  cancel-in-progress: true
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Ping the API (stops by itself after the event)
+        env:
+          API_URL: ${{ vars.API_URL }}
+          LAST_DAY: "2026-12-26"
+        run: |
+          if [[ "$(date -u +%F)" > "$LAST_DAY" ]]; then
+            echo "Event is over ($LAST_DAY): not pinging. You can disable this workflow."
+            exit 0
+          fi
+          if [[ -z "$API_URL" ]]; then
+            echo "::error::Repository variable API_URL is not set."
+            exit 1
+          fi
+          curl --fail --silent --show-error --max-time 120 --retry 2 --retry-delay 10 \
+            "${API_URL%/}/ping"
+          echo
