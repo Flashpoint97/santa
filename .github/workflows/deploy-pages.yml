@@ -1,0 +1,83 @@
+name: Deploy frontend to GitHub Pages
+
+# Builds the static Next.js export and publishes it on every push to master (or by hand).
+# Needs one repository VARIABLE (not a secret: the API URL is public in the bundle anyway):
+#   Settings > Secrets and variables > Actions > Variables > API_URL = https://<service>.onrender.com
+# And Settings > Pages > Source = "GitHub Actions". See DEPLOY.md.
+
+on:
+  push:
+    branches: [master]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# One deploy at a time; never cancel one that is already publishing.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Build static site
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      pages: read # configure-pages reads the Pages settings (fails clearly if Pages is not enabled)
+    env:
+      API_URL: ${{ vars.API_URL }}
+    steps:
+      - name: Require the API_URL repository variable
+        run: |
+          if [ -z "${API_URL}" ]; then
+            echo "::error title=API_URL is not set::Create the repository VARIABLE API_URL (Settings > Secrets and variables > Actions > Variables) with the Render URL, e.g. https://santa-api.onrender.com"
+            exit 1
+          fi
+          case "${API_URL}" in
+            https://*) ;;
+            *)
+              echo "::error title=API_URL must be https::API_URL must start with https:// (a Pages site cannot call an http API)."
+              exit 1
+              ;;
+          esac
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d # v6.0.0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Install dependencies
+        working-directory: frontend
+        run: npm ci
+      - name: Build the static export
+        working-directory: frontend
+        env:
+          # The site lives at https://<user>.github.io/<repo>/, so the base path is the repo name.
+          BASE_PATH: /${{ github.event.repository.name }}
+          NEXT_PUBLIC_API_URL: ${{ env.API_URL }}
+        run: npm run build
+      - name: Mark the site as not-Jekyll
+        run: touch frontend/out/.nojekyll
+      - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
+        with:
+          path: frontend/out
+
+  deploy:
+    name: Deploy to GitHub Pages
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      pages: write # publish to Pages
+      id-token: write # prove to Pages that the deploy comes from this workflow
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1

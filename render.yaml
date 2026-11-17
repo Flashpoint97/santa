@@ -1,0 +1,40 @@
+# Render Blueprint for the Secret Santa API (free web service). No secrets in this file:
+# the three `sync: false` variables are typed into Render's dashboard once, at Blueprint creation.
+# Step-by-step guide: DEPLOY.md
+services:
+  - type: web
+    name: santa-api
+    runtime: python
+    plan: free
+    region: frankfurt # keep it close to the Neon database (create Neon in AWS Frankfurt too)
+    branch: master
+    autoDeployTrigger: commit
+    rootDir: backend
+    # Pinned: Render needs a fully qualified version here (python.org patch release).
+    buildCommand: pip install uv==0.13.7 && uv sync --locked --no-dev
+    # Migrations first (a failure stops the start and the old deploy stays live), then the API.
+    # --no-proxy-headers: uvicorn must NOT rewrite the client address from X-Forwarded-For. The app
+    # reads the header itself, from the right, counting TRUSTED_PROXY_HOPS (app/services/client_ip.py).
+    startCommand: >-
+      uv run --no-sync alembic upgrade head &&
+      exec uv run --no-sync uvicorn app.main:app --host 0.0.0.0 --port $PORT --no-proxy-headers
+    healthCheckPath: /health
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.13
+      - key: ENVIRONMENT
+        value: production
+      # Render: client-supplied entries..., real client, Cloudflare edge, Render internal proxy.
+      # Verify after every deploy with backend/scripts/check_ip_spoofing.py.
+      - key: TRUSTED_PROXY_HOPS
+        value: "3"
+      # Neon DIRECT (non-pooled) connection string. Set by hand.
+      - key: DATABASE_URL
+        sync: false
+      # Must be EXACTLY the value the organizer's CLI uses (private/.env.production). Set by hand.
+      - key: CODE_HMAC_SECRET
+        sync: false
+      # JSON list with the Pages origin only (scheme + host, no path), e.g.
+      # ["https://<github-user>.github.io"]. Set by hand.
+      - key: CORS_ORIGINS
+        sync: false

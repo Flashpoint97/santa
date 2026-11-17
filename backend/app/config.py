@@ -50,6 +50,11 @@ class Settings(BaseSettings):
     login_failures_global: int = Field(default=50, ge=1)
     login_failures_global_window_minutes: int = Field(default=60, ge=1)
 
+    # --- client IP for rate limits: how many proxies in front of the app append to
+    # X-Forwarded-For. 0 = ignore the header and use the socket peer (local dev, tests).
+    # Render: 3 (client-supplied entries..., real client, Cloudflare edge, Render internal).
+    trusted_proxy_hops: int = Field(default=0, ge=0, le=10)
+
     # --- CORS: the GitHub Pages origin (scheme + host, no path) and localhost in dev ---
     cors_origins: list[str] = ["http://localhost:3000"]
 

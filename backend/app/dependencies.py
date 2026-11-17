@@ -13,6 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
 from app.db.session import get_db
+from app.services.client_ip import resolve_client_ip
 from app.services.participant_store import ParticipantStore
 from app.services.sessions import Principal, authenticate
 
@@ -23,9 +24,14 @@ _bearer = HTTPBearer(auto_error=False)
 
 
 def client_ip(request: Request) -> str:
-    # Behind Render's proxy, uvicorn --proxy-headers rewrites request.client from
-    # X-Forwarded-For. We never parse that header ourselves (it's client-controlled).
-    return request.client.host if request.client else "unknown"
+    # uvicorn runs with --no-proxy-headers, so request.client is the socket peer (Render's
+    # proxy). The real client comes from the right-hand end of X-Forwarded-For, counted by
+    # TRUSTED_PROXY_HOPS; the client-controlled left part is never read. See services/client_ip.py.
+    return resolve_client_ip(
+        request.client.host if request.client else None,
+        request.headers.getlist("x-forwarded-for"),
+        settings.trusted_proxy_hops,
+    )
 
 
 ClientIp = Annotated[str, Depends(client_ip)]

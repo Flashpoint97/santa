@@ -119,6 +119,27 @@ Logs go to stderr and never contain names, Codes or Assignments (participant ids
   its database write lock instead). Consequence: login attempts are serialised site-wide, fine
   at this size. See `app/services/rate_limit.py`.
 
+## Client IP behind a proxy
+
+`X-Forwarded-For` is a list every proxy appends to; a client can pre-fill the left part, so it is
+never read from the left. `TRUSTED_PROXY_HOPS=N` (default 0 = ignore the header and use the socket
+peer) takes the N-th entry from the RIGHT, the address the outermost trusted proxy saw connect.
+A missing or short header, or a non-IP in that slot, falls back to the socket peer (shared bucket,
+never a client-chosen one). uvicorn runs with `--no-proxy-headers` so it does not rewrite the
+client address itself. Render sets `TRUSTED_PROXY_HOPS=3` in `render.yaml` (client-supplied
+entries, real client, Cloudflare edge, Render's proxy; observed behaviour, not documented by
+Render). Logic and tests: `app/services/client_ip.py`, `tests/test_client_ip.py`.
+
+After a deploy, prove it from outside (sends 13 wrong Codes, each with a different forged
+`X-Forwarded-For`, and expects the 429 to start after `LOGIN_FAILURES_PER_IP`):
+
+```
+uv run python scripts/check_ip_spoofing.py https://<api-url>
+```
+
+Deployment: `render.yaml` at the repo root and `DEPLOY.md` (the production environment fails to
+boot without a real `CODE_HMAC_SECRET`, `DATABASE_URL` and non-localhost `CORS_ORIGINS`).
+
 ## Checks
 
 ```
