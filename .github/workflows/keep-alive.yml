@@ -1,28 +1,36 @@
 # Keeps the free Render API awake until the gift exchange, so visitors don't wait ~1 minute for a
 # cold start. Pings /ping, which does not touch the database (Neon can still scale to zero).
-# Render sleeps after 15 idle minutes; GitHub runs schedules best-effort, so we ping every 10.
+#
+# Render sleeps after 15 idle minutes. GitHub starts scheduled runs only every few hours in
+# practice, so a single run stays alive and pings every 5 minutes for ~5h40m (jobs max out at
+# 6h), then starts the next run itself. The hourly schedule only restarts the chain if it breaks.
+# Public repo: Actions minutes are free.
 name: Keep API awake
 
 on:
   schedule:
-    - cron: "*/10 * * * *"
+    - cron: "0 * * * *"
   workflow_dispatch:
 
-permissions: {}
+permissions:
+  actions: write # to start the next run
 
+# One run at a time; a newer start waits (never cancels the running pinger).
 concurrency:
   group: keep-alive
-  cancel-in-progress: true
+  cancel-in-progress: false
+
+env:
+  LAST_DAY: "2026-12-26"
 
 jobs:
   ping:
     runs-on: ubuntu-latest
-    timeout-minutes: 3
+    timeout-minutes: 350
     steps:
-      - name: Ping the API (stops by itself after the event)
+      - name: Ping every 5 minutes (stops by itself after the event)
         env:
           API_URL: ${{ vars.API_URL }}
-          LAST_DAY: "2026-12-26"
         run: |
           if [[ "$(date -u +%F)" > "$LAST_DAY" ]]; then
             echo "Event is over ($LAST_DAY): not pinging. You can disable this workflow."
@@ -32,6 +40,20 @@ jobs:
             echo "::error::Repository variable API_URL is not set."
             exit 1
           fi
-          curl --fail --silent --show-error --max-time 120 --retry 2 --retry-delay 10 \
-            "${API_URL%/}/ping"
-          echo
+          end=$((SECONDS + 340 * 60))
+          while (( SECONDS < end )); do
+            curl --silent --show-error --max-time 120 --retry 2 --retry-delay 10 \
+              "${API_URL%/}/ping" || echo "::warning::ping failed; trying again in 5 minutes"
+            echo
+            sleep 300
+          done
+
+      - name: Start the next run # only after a clean run, so a broken setup can't loop
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if [[ "$(date -u +%F)" > "$LAST_DAY" ]]; then
+            echo "Event is over: not starting another run."
+            exit 0
+          fi
+          gh workflow run keep-alive.yml --repo "$GITHUB_REPOSITORY" --ref "$GITHUB_REF_NAME"
