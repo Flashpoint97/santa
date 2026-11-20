@@ -34,7 +34,7 @@ committed; `list.example.json` is a placeholder with obviously fake data.
       "accusative_name": "string",   // used in "you give to ..."
       "partner": "other display_name or null", // must point back at this person
       "note": "personal note (optional)",
-      "gif": "file.gif (required; path relative to the list file's directory)"
+      "gif": "file.gif|.jpg|.png (required; a GIF, JPEG or PNG; path relative to the list file's directory)"
     }
   ]
 }
@@ -42,15 +42,19 @@ committed; `list.example.json` is a placeholder with obviously fake data.
 (The `//` comments are explanatory only: real JSON has no comments.)
 
 `load` checks everything first (unique names, partner links valid and symmetric, a real
-Zagreb local time, every GIF present, a real GIF by its magic bytes and at most 30 MB) and
-writes nothing if anything is wrong. It refuses if an event already exists.
+Zagreb local time, every picture present, a real GIF, JPEG or PNG by its magic bytes and at most 30 MB) and
+writes nothing if anything is wrong. Several events ("circles") can live side by side in one
+deployment: `load` refuses only if an event with the same name (case-insensitive) already
+exists. It prints the event name with the Codes, and every new Code is unique among all Codes
+of all events.
 
 ## Animations
 
-Each participant's GIF is the clip that shows *that person*. `load` converts every GIF, before
+Each participant's GIF (or still JPEG/PNG photo) shows *that person*. `load` converts every file, before
 it opens the database transaction, to a muted H.264 MP4 (yuv420p, even sides, at most 720 px on
 the long side, `+faststart`, CRF 26) with a bundled ffmpeg from the `imageio-ffmpeg` package, so
-nothing is installed system-wide. The MP4s are stored in the `animations` table in the same
+nothing is installed system-wide. A still photo becomes a 2-second clip of the unchanged picture
+(the page loops it). The MP4s are stored in the `animations` table in the same
 transaction as the event. `GET /api/v1/me/receiver/animation` serves a participant only the clip
 of the person they drew (`video/mp4`, `Cache-Control: private, no-store`; 401 without a Session,
 404 without a draw or clip). Nothing but that route loads the video blob.
@@ -79,7 +83,12 @@ recreate the dev database, then `alembic upgrade head`.
 ```
 uv run python -m app.cli draw             # prints only "Draw complete: N participants."
 uv run python -m app.cli draw --redraw    # replaces an existing draw atomically
+uv run python -m app.cli draw --event "Name"   # with several events: say which one
 ```
+
+`draw`, `new-code`, `status` and `wipe` all take `--event "<name>"` (case-insensitive) and touch
+only that event. Without it they use the only event; with several events they refuse and list
+the event names; an unknown name changes nothing.
 
 Exclusions are the Partner links (both directions). A second `draw` is refused without `--redraw`;
 an impossible draw writes nothing and exits 1. A re-draw also resets everyone's first-reveal flag.
@@ -90,7 +99,7 @@ Assignments are never printed or logged.
 ```
 uv run python -m app.cli new-code "Osoba B"   # lost Code: prints a new one, once
 uv run python -m app.cli status               # "Osoba A: da" / "Osoba A: ne" (logged in), sorted
-uv run python -m app.cli wipe                 # after the event: delete everything
+uv run python -m app.cli wipe                 # after the event: delete that event (--event "Name" if several)
 ```
 
 - `new-code <name>`: the name is matched case-insensitively; an unknown name exits 1 and changes
@@ -99,9 +108,11 @@ uv run python -m app.cli wipe                 # after the event: delete everythi
   printed once on stdout and never logged. The Participant's logged-in flag is left as it was.
 - `status`: one line per Participant, name plus `da`/`ne` (has logged in). Nothing about
   Assignments, Reveals, Codes or times. Exits 1 if no event is loaded.
-- `wipe`: asks you to type `OBRIŠI` (read from stdin; anything else, or no input, deletes nothing
-  and exits 1). It then deletes the event, which cascades to Participants, Sessions, Assignments
-  and Animations, and also all rate-limit rows, so no table keeps any data. There is no
+- `wipe`: names the event and its participant count, then asks you to type `OBRIŠI` (read from
+  stdin; anything else, or no input, deletes nothing and exits 1). It then deletes that event,
+  which cascades to its Participants, Sessions, Assignments and Animations (other events are
+  untouched), and also all rate-limit rows (they belong to no event); wiping the last event
+  leaves no table with any data. There is no
   `--yes` flag on purpose; scripts can pipe the word in: `echo OBRIŠI | python -m app.cli wipe`.
 
 Logs go to stderr and never contain names, Codes or Assignments (participant ids at most).

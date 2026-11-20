@@ -1,10 +1,10 @@
-"""Create the event, participants and Codes from a validated list. No FastAPI imports."""
+"""Create an event, its participants and Codes from a validated list. No FastAPI imports."""
 
 from collections.abc import Mapping
 from dataclasses import dataclass
 
 import structlog
-from sqlalchemy import func, select
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.models import Animation, Event, Participant
@@ -16,7 +16,7 @@ logger = structlog.get_logger(__name__)
 
 
 class EventExistsError(Exception):
-    """One event per deployment: wipe it before loading another."""
+    """An event with the same name (casefold) is already loaded."""
 
 
 @dataclass(frozen=True)
@@ -32,11 +32,14 @@ async def load_event(
 
     `videos` holds the already-converted MP4 of each participant, keyed by casefolded
     display_name: conversion is slow and can fail, so it happens before this transaction opens.
-    Raises EventExistsError, writing nothing, if an event is already present.
+    Other events may exist side by side. Raises EventExistsError, writing nothing, if one has the
+    same name (compared with casefold in Python, not SQL lower()). Codes are unique against
+    every Participant's hash in the whole database, not only within this list.
     """
     if videos.keys() != {p.display_name.casefold() for p in parsed.participants}:
         raise ValueError("videos must cover exactly the participants in the list")
-    if await db.scalar(select(func.count()).select_from(Event)):
+    wanted = parsed.event.name.casefold()
+    if any(name.casefold() == wanted for name in await db.scalars(select(Event.name))):
         raise EventExistsError
 
     ev = parsed.event
@@ -51,13 +54,15 @@ async def load_event(
     db.add(event)
     await db.flush()
 
-    # Codes are unique within the event: redraw on collision.
-    used: set[str] = set()
+    # `code_hash` is globally unique (login looks a Code up without knowing the event), so a new
+    # Code must differ from every existing Participant's, in every event: redraw on collision.
+    taken: set[str] = set(await db.scalars(select(Participant.code_hash)))
     issued: list[IssuedCode] = []
     rows: dict[str, Participant] = {}
     for entry in parsed.participants:
-        code = generate_unique_code(used.__contains__)
-        used.add(code)
+        code = generate_unique_code(lambda c: keyed_hash(secret, c) in taken)
+        code_hash = keyed_hash(secret, code)
+        taken.add(code_hash)
         issued.append(IssuedCode(entry.display_name, code))
         rows[entry.display_name.casefold()] = Participant(
             event_id=event.id,
@@ -65,7 +70,7 @@ async def load_event(
             vocative_name=entry.vocative_name,
             accusative_name=entry.accusative_name,
             note=entry.note,
-            code_hash=keyed_hash(secret, code),
+            code_hash=code_hash,
         )
     db.add_all(rows.values())
     await db.flush()

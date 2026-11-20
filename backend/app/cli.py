@@ -3,6 +3,9 @@
 Output never includes assignments. Codes are printed once, by `load`, and only their HMAC is stored.
 `draw` prints only the participant count. `new-code` prints one Code, once; `status` and `wipe`
 print no Codes and no Assignments.
+
+One deployment can hold several independent events. `draw`, `new-code`, `status` and `wipe` take
+`--event "<name>"`; it may be left out only while exactly one event exists.
 """
 
 import argparse
@@ -17,12 +20,13 @@ from sqlalchemy.ext.asyncio import AsyncEngine, async_sessionmaker
 from app.config import settings
 from app.db.session import build_engine
 from app.services.animation import prepare_animations
-from app.services.drawing import AlreadyDrawnError, DrawImpossibleError, NoEventError, run_draw
+from app.services.drawing import AlreadyDrawnError, DrawImpossibleError, run_draw
+from app.services.events import AmbiguousEventError, NoEventError, UnknownEventError
 from app.services.list_file import ListFile, ListFileError, parse_list_file
 from app.services.loader import EventExistsError, load_event
 from app.services.organizer import (
     UnknownParticipantError,
-    count_participants,
+    describe_event,
     participant_statuses,
     replace_code,
     wipe_event,
@@ -31,8 +35,29 @@ from app.services.organizer import (
 WIPE_CONFIRMATION = "OBRIŠI"
 
 
+def _event_error(exc: Exception, *, outcome: str) -> None:
+    """Report an event-resolution failure on stderr. Event names are fine in the organizer's
+    terminal; Participants and Assignments never appear here."""
+    if isinstance(exc, NoEventError):
+        print(f"error: no event is loaded; {outcome}.", file=sys.stderr)
+    elif isinstance(exc, UnknownEventError):
+        print(f"error: no event with that name; {outcome}.", file=sys.stderr)
+    elif isinstance(exc, AmbiguousEventError):
+        print(
+            f"error: several events exist; name one with --event; {outcome}. Events:",
+            file=sys.stderr,
+        )
+        for name in exc.names:
+            print(f"  - {name}", file=sys.stderr)
+    else:  # pragma: no cover - callers only pass the three above
+        raise exc
+
+
+_EVENT_ERRORS = (NoEventError, UnknownEventError, AmbiguousEventError)
+
+
 def _read_list(path: Path) -> tuple[ListFile, dict[str, bytes]] | None:
-    """Read and validate the list file and convert its GIFs; on any problem report it on
+    """Read and validate the list file and convert its pictures; on any problem report it on
     stderr and return None. Nothing here touches the database."""
     try:
         parsed = parse_list_file(path.read_bytes())
@@ -53,21 +78,27 @@ async def _load(engine: AsyncEngine, parsed: ListFile, videos: dict[str, bytes])
                 db, parsed, videos, secret=settings.code_hmac_secret.get_secret_value()
             )
         except EventExistsError:
-            print("error: an event already exists; nothing was written.", file=sys.stderr)
+            print(
+                "error: an event with this name already exists; nothing was written.",
+                file=sys.stderr,
+            )
             return 1
 
-    print(f"Loaded event with {len(issued)} participants. Codes (shown only once):")
+    print(
+        f"Loaded event {parsed.event.name!r} with {len(issued)} participants. "
+        "Codes (shown only once):"
+    )
     for item in issued:
         print(f"  {item.display_name}: {item.code}")
     return 0
 
 
-async def _draw(engine: AsyncEngine, *, redraw: bool) -> int:
+async def _draw(engine: AsyncEngine, *, redraw: bool, event: str | None) -> int:
     async with async_sessionmaker(engine, expire_on_commit=False)() as db:
         try:
-            count = await run_draw(db, redraw=redraw)
-        except NoEventError:
-            print("error: no event is loaded; nothing was written.", file=sys.stderr)
+            count = await run_draw(db, redraw=redraw, event_name=event)
+        except _EVENT_ERRORS as exc:
+            _event_error(exc, outcome="nothing was written")
         except AlreadyDrawnError:
             print(
                 "error: the draw has already happened; nothing was written. "
@@ -87,14 +118,14 @@ async def _draw(engine: AsyncEngine, *, redraw: bool) -> int:
     return 1
 
 
-async def _new_code(engine: AsyncEngine, name: str) -> int:
+async def _new_code(engine: AsyncEngine, name: str, event: str | None) -> int:
     async with async_sessionmaker(engine, expire_on_commit=False)() as db:
         try:
             code = await replace_code(
-                db, secret=settings.code_hmac_secret.get_secret_value(), name=name
+                db, secret=settings.code_hmac_secret.get_secret_value(), name=name, event_name=event
             )
-        except NoEventError:
-            print("error: no event is loaded; nothing was changed.", file=sys.stderr)
+        except _EVENT_ERRORS as exc:
+            _event_error(exc, outcome="nothing was changed")
         except UnknownParticipantError:
             print("error: no participant with that name; nothing was changed.", file=sys.stderr)
         else:
@@ -103,29 +134,30 @@ async def _new_code(engine: AsyncEngine, name: str) -> int:
     return 1
 
 
-async def _status(engine: AsyncEngine) -> int:
+async def _status(engine: AsyncEngine, event: str | None) -> int:
     async with async_sessionmaker(engine, expire_on_commit=False)() as db:
         try:
-            rows = await participant_statuses(db)
-        except NoEventError:
-            print("error: no event is loaded.", file=sys.stderr)
+            rows = await participant_statuses(db, event)
+        except _EVENT_ERRORS as exc:
+            _event_error(exc, outcome="nothing to show")
             return 1
     for row in rows:
         print(f"{row.display_name}: {'da' if row.logged_in else 'ne'}")
     return 0
 
 
-async def _wipe(engine: AsyncEngine) -> int:
+async def _wipe(engine: AsyncEngine, event: str | None) -> int:
     async with async_sessionmaker(engine, expire_on_commit=False)() as db:
         try:
-            people = await count_participants(db)
-        except NoEventError:
-            print("error: no event is loaded; nothing was deleted.", file=sys.stderr)
+            summary = await describe_event(db, event)
+        except _EVENT_ERRORS as exc:
+            _event_error(exc, outcome="nothing was deleted")
             return 1
         await db.rollback()  # end the read transaction: nothing is held open during the prompt
         print(
-            f"This permanently deletes the event and all its data ({people} participants, "
-            f"Sessions, draw, animations). Type {WIPE_CONFIRMATION} to confirm: ",
+            f"This permanently deletes the event {summary.name!r} and all its data "
+            f"({summary.participants} participants, Sessions, draw, animations). "
+            f"Type {WIPE_CONFIRMATION} to confirm: ",
             end="",
             file=sys.stderr,
             flush=True,
@@ -134,27 +166,34 @@ async def _wipe(engine: AsyncEngine) -> int:
             print("error: confirmation did not match; nothing was deleted.", file=sys.stderr)
             return 1
         try:
-            await wipe_event(db)
-        except NoEventError:  # removed by someone else since the prompt
-            print("error: no event is loaded; nothing was deleted.", file=sys.stderr)
+            await wipe_event(db, summary.name)  # the exact name that was confirmed
+        except _EVENT_ERRORS:  # removed by someone else since the prompt
+            print("error: that event no longer exists; nothing was deleted.", file=sys.stderr)
             return 1
-    print("Event and all its data deleted.")
+    print(f"Event {summary.name!r} and all its data deleted.")
     return 0
 
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="python -m app.cli", description=__doc__)
     sub = parser.add_subparsers(dest="command", required=True)
-    load = sub.add_parser("load", help="validate a list file, create the event and print Codes")
+    load = sub.add_parser("load", help="validate a list file, create an event and print Codes")
     load.add_argument("list_file", type=Path)
+    event_help = "event name (case-insensitive); optional only while exactly one event exists"
     draw = sub.add_parser("draw", help="draw the Assignments (prints only the participant count)")
     draw.add_argument("--redraw", action="store_true", help="replace an existing draw, atomically")
+    draw.add_argument("--event", help=event_help)
     new_code = sub.add_parser(
         "new-code", help="replace a Participant's Code and end their Sessions"
     )
     new_code.add_argument("name", help="display name (case-insensitive)")
-    sub.add_parser("status", help="list who has logged in (nothing else)")
-    sub.add_parser("wipe", help="permanently delete the event and all its data (asks to confirm)")
+    new_code.add_argument("--event", help=event_help)
+    status = sub.add_parser("status", help="list who has logged in (nothing else)")
+    status.add_argument("--event", help=event_help)
+    wipe = sub.add_parser(
+        "wipe", help="permanently delete one event and all its data (asks to confirm)"
+    )
+    wipe.add_argument("--event", help=event_help)
     return parser
 
 
@@ -166,13 +205,13 @@ async def _run(args: argparse.Namespace, prepared: tuple[ListFile, dict[str, byt
             assert prepared is not None  # noqa: S101 - set by main() for this command
             return await _load(engine, *prepared)
         if args.command == "draw":
-            return await _draw(engine, redraw=args.redraw)
+            return await _draw(engine, redraw=args.redraw, event=args.event)
         if args.command == "new-code":
-            return await _new_code(engine, args.name)
+            return await _new_code(engine, args.name, args.event)
         if args.command == "status":
-            return await _status(engine)
+            return await _status(engine, args.event)
         if args.command == "wipe":
-            return await _wipe(engine)
+            return await _wipe(engine, args.event)
         raise AssertionError(args.command)  # pragma: no cover - argparse enforces the choices
     finally:
         await engine.dispose()
@@ -184,7 +223,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     structlog.configure(logger_factory=structlog.PrintLoggerFactory(file=sys.stderr))
     prepared: tuple[ListFile, dict[str, bytes]] | None = None
     if args.command == "load":
-        # Validate the list and convert the GIFs before touching the database.
+        # Validate the list and convert the pictures before touching the database.
         prepared = _read_list(args.list_file)
         if prepared is None:
             return 1

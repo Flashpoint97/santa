@@ -237,7 +237,7 @@ async def test_a_missing_or_invalid_gif_fails_validation_and_writes_nothing(
     if kind == "missing":
         target.unlink()
     elif kind == "not-a-gif":
-        target.write_bytes(b"\x89PNG\r\n\x1a\n" + b"0" * 64)
+        target.write_bytes(b"%PDF-1.7 " + b"0" * 64)
     elif kind == "empty":
         target.write_bytes(b"")
     elif kind == "key-absent":

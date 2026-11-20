@@ -14,10 +14,10 @@ from sqlalchemy import select
 
 from app.db.models import Animation, Assignment
 from app.db.session import SessionLocal, engine
-from app.services.animation import AnimationError, convert_gif_to_mp4, read_gif
+from app.services.animation import AnimationError, convert_to_mp4, read_image
 from app.services.drawing import run_draw
 from tests.conftest import Seeded, seed_event
-from tests.gifs import make_gif
+from tests.gifs import make_gif, make_still
 
 ANIMATION = "/api/v1/me/receiver/animation"
 
@@ -45,7 +45,7 @@ def dimensions(description: str) -> tuple[int, int]:
 
 
 def test_a_tiny_gif_becomes_a_valid_muted_h264_mp4(tmp_path: Path) -> None:
-    video = convert_gif_to_mp4(make_gif())
+    video = convert_to_mp4(make_gif())
     assert video[4:8] == b"ftyp"  # the MP4 container signature
     info = probe(video, tmp_path)
     assert "Video: h264" in info
@@ -56,42 +56,76 @@ def test_a_tiny_gif_becomes_a_valid_muted_h264_mp4(tmp_path: Path) -> None:
 
 
 def test_odd_sides_are_made_even_and_small_clips_are_not_scaled_up(tmp_path: Path) -> None:
-    width, height = dimensions(probe(convert_gif_to_mp4(make_gif(15, 13)), tmp_path))
+    width, height = dimensions(probe(convert_to_mp4(make_gif(15, 13)), tmp_path))
     assert (width % 2, height % 2) == (0, 0)
     assert width <= 15
     assert height <= 13
 
 
 def test_large_clips_are_scaled_to_fit_720_on_the_long_side(tmp_path: Path) -> None:
-    width, height = dimensions(probe(convert_gif_to_mp4(make_gif(1000, 500, frames=2)), tmp_path))
+    width, height = dimensions(probe(convert_to_mp4(make_gif(1000, 500, frames=2)), tmp_path))
     assert (width, height) == (720, 360)
-    width, height = dimensions(probe(convert_gif_to_mp4(make_gif(500, 1001, frames=2)), tmp_path))
+    width, height = dimensions(probe(convert_to_mp4(make_gif(500, 1001, frames=2)), tmp_path))
     assert max(width, height) <= 720
     assert (width % 2, height % 2) == (0, 0)
 
 
 @pytest.mark.parametrize(
     "data",
-    [b"", b"not a gif at all", b"\x89PNG\r\n\x1a\n" + b"0" * 32, b"GIF8" + b"0" * 32],
+    [b"", b"not an image at all", b"GIF8" + b"0" * 32, b"RIFF....WEBPVP8 ", b"%PDF-1.7"],
 )
-def test_non_gif_input_is_refused_before_ffmpeg_runs(data: bytes) -> None:
+def test_unsupported_input_is_refused_before_ffmpeg_runs(data: bytes) -> None:
     with pytest.raises(AnimationError):
-        convert_gif_to_mp4(data)
+        convert_to_mp4(data)
 
 
-def test_a_gif_header_with_garbage_behind_it_fails_cleanly() -> None:
-    with pytest.raises(AnimationError):
-        convert_gif_to_mp4(b"GIF89a" + b"\x00" * 64)
+@pytest.mark.parametrize(
+    "header", [b"GIF89a", b"\x89PNG\r\n\x1a\n", b"\xff\xd8\xff\xe0"], ids=["gif", "png", "jpeg"]
+)
+def test_a_valid_header_with_garbage_behind_it_fails_cleanly(header: bytes) -> None:
+    with pytest.raises(AnimationError) as exc:
+        convert_to_mp4(header + b"\x00" * 64)
+    assert "\\x00" not in str(exc.value)
 
 
-def test_read_gif_enforces_the_size_limit(tmp_path: Path) -> None:
+@pytest.mark.parametrize("fmt", ["JPEG", "PNG"])
+def test_a_still_picture_becomes_a_short_muted_h264_mp4(fmt: str, tmp_path: Path) -> None:
+    video = convert_to_mp4(make_still(fmt, 32, 20))
+    assert video[4:8] == b"ftyp"
+    info = probe(video, tmp_path)
+    assert "Video: h264" in info
+    assert "yuv420p" in info
+    assert "Audio:" not in info
+    assert dimensions(info) == (32, 20)
+    assert video.find(b"moov") < video.find(b"mdat")
+    # About two seconds long, so a looping <video> shows the unchanged picture.
+    duration = re.search(r"Duration: (\d+):(\d+):(\d+\.\d+)", info)
+    assert duration
+    assert 1.5 <= float(duration[3]) <= 2.5
+
+
+@pytest.mark.parametrize("fmt", ["JPEG", "PNG"])
+def test_still_pictures_follow_the_same_size_rules(fmt: str, tmp_path: Path) -> None:
+    width, height = dimensions(probe(convert_to_mp4(make_still(fmt, 15, 13)), tmp_path))
+    assert (width % 2, height % 2) == (0, 0)
+    assert width <= 15
+    assert height <= 13
+    big = dimensions(probe(convert_to_mp4(make_still(fmt, 1000, 500)), tmp_path))
+    assert big == (720, 360)
+
+
+def test_read_image_enforces_the_size_limit(tmp_path: Path) -> None:
     path = tmp_path / "big.gif"
     path.write_bytes(make_gif())
-    assert read_gif(path)[:6] == b"GIF89a"
+    assert read_image(path)[:6] == b"GIF89a"
+    for fmt, magic in (("JPEG", b"\xff\xd8\xff"), ("PNG", b"\x89PNG")):
+        still = tmp_path / "still"
+        still.write_bytes(make_still(fmt))
+        assert read_image(still).startswith(magic)
     with pytest.raises(AnimationError, match="larger"):
-        read_gif(path, max_bytes=10)
+        read_image(path, max_bytes=10)
     with pytest.raises(AnimationError, match="not found"):
-        read_gif(tmp_path / "missing.gif")
+        read_image(tmp_path / "missing.gif")
 
 
 # --- the route -----------------------------------------------------------------------------
